@@ -1,0 +1,198 @@
+Usage Notes for LADSPA plugin ACDf version 4.x
+Updated September 2024
+Charlie Laub
+
+Info:
+The ACDf LADSPA plugin can implement a wide variety of first and second order 
+filters. ACD refers to the Active Crossover Designer, a set of Excel based 
+tools for designing active crossovers for loudspeakers using acoustic 
+measurements of the system. ACD can be found on the web at:
+http://audio.claub.net/software/ACD/ACD.html
+
+LADSPA is a platform for implementing audio processing algorithms as "plugins" 
+that are called by a host program. Some examples of host programs include 
+ecasound (Linux), ALSA (Linux), and Gstreamer (Linux and Windows). Before use, 
+plugins must be compiled for the operating system under which the host is 
+running. This process is is simplified using a makefile.  
+
+================================================================================
+Using the LADSPA ACDf plugin:
+
+ACDf is invoked using a LADSPA host. The exact syntax is host dependent. Up to
+seven parameters are used to describe the filter.  
+
+The parameters control the behavior of each filter. When using ecasound, they
+should appear in the following order:
+PARAMETER    WHAT IT DOES
+type         indicates which filter type to implement (see below)
+polarity     -1 reverses polarity. polarity is unchanged for any other number
+db           passband gain for the filter in dB, or PEQ band gain
+fp           sets the frequency of the filter pole in Hz 
+qp           sets the Q factor of the filter pole 
+fz           sets the frequency of the filter zero in Hz 
+qz           sets the Q factor of the filter zero
+
+NOTE: Most filter types can be described using only a few of the 7 parameters.
+The following table lists which parameters should be specified for each filter
+type: 
+
+ACDf filter types and their required parameters:
+TYPE   DESCRIPTION                 REQUIRED PARAMETERS
+ 0     gain block                  db, polarity 
+ 1     1st order LP                db, polarity, fp
+ 2     1st order HP                db, polarity, fp
+ 3     1st order AP                polarity, fp
+ 4     1st low shelf               fp, db
+ 5     1st high shelf              fp, db
+21     2nd order LP                db, polarity, fp, qp, 
+22     2nd order HP                db, polarity, fp, qp
+23     2nd order AP                polarity, fp, qp
+24     2nd order low shelf         db, polarity, fp, qp
+25     2nd order high shelf        db, polarity, fp, qp
+26     parametric EQ               db, fp, qp
+27     2nd order notch             db, polarity, fp, qp, fz
+28     biquadratic filter          db, polarity, fp, qp, fz, qz
+77     2nd order notch             polarity, fp, qp, fz (see TYPE 77, below)
+
+NOTES:
+
+TYPE 77:
+This type is used to implement lowpass and highpass notch filters. For the
+lowpass notch filter, the db "gain correction" is automatically applied so that
+the DC gain of the lowpass remains 0dB. Any user supplied value for db will be
+ignored.  
+
+SHELF FILTERS:
+For filter types 4,5 and 24,25 the value supplied for "fp" is used to set the 
+center frequency of the shelf transition. For the '2nd order low shelf' and 
+'2nd order high shelf' the value suppied as qp determines the Q value where 
+the filter curve enters and leaves the transition. To reproduce a 2nd order shelf
+filter with asymmetric shapes use the general biquadratic filter (type 28) and
+specify qp and qz separately.
+
+For additional information on filters please refer to the Active Crossover 
+Designer technical manual.
+
+Each parameter has a default value if none is provided by the user. The following
+table lists the default values:
+PARAMETER    DEFAULT VALUE
+type         0 (gain block)
+polarity     1 (normal polarity)
+dB           0 (no gain or cut)
+fp           440 Hz 
+qp           1.0 
+fz           440 Hz 
+qz           1.0
+
+
+================================================================================     
+
+Some hints for constructing loudspeaker crossovers:
+Loudspeaker crossovers are often known by names such as Butterworth, Linkwitz-
+Riley, etc. These are simply combinations of first and second order filters with
+specific Qp values for the second order stage(s). The following provides a guide
+for constructing some of the more common crossover types:
+
+    1st order    Q       Q       Q       Q
+LR2             0.5
+BUT2            0.707
+BUT3     X      1.0
+LR4             0.707   0.707
+BUT4            0.54    1.31
+BUT5     X      0.62    1.62
+LR6             0.5     1.0     1.0
+BUT6            0.52    0.707   1.93
+BUT7     X      0.55    0.8     2.24
+LR8             0.54    0.54    1.31    1.31
+BUT8            0.51    0.6     0.9     2.56
+
+In the table above, the column '1st order' indicates whether a first order stage
+is used to construct the named higher order filter. The columns labeled 'Q' 
+indicate the pole Q (Qp) value for each second order filter used. The Fp of each
+ACDf filter is set equal to the "corner frequency" of the overall filter for the
+Linkwitz-Riley and Butterworth filter types.  
+
+================================================================================     
+
+Examples using ecasound:
+Under the LADSPA host ecasound, a LADSPA plugin is specified by using -el: 
+followed by the plugin name and its parameters as a comma separated list.
+Example: -el:ACDf,1,2,3,4,5,6,7
+NOTE: when using ecasound, parameters 1-7 must appear in the following 
+order: type, polarity, dB, fp, qp, fz, qz. It's good practice to explicitly
+provide all ACDf parameters under ecasound. In examples A through D, below, 
+the -el: has been omitted.
+                                                  
+A. A second order Butterworth high-pass filter having a corner frequency of 500
+Hz, no gain, and normal polarity:                 
+ACDf, 2, 1, 0, 500, 0.7071, 0, 0                  
+
+B. A fourth order Linkwitz-Riley high-pass filter at 2.2kHz with -6dB of gain and
+normal polarity. From the table we can see that the LR4 type does not use a 
+first order filter but uses two second order filters, each having a Qp of 0.707.
+The LR4 HP filter is constructed using two ACDf filters of type 22:
+ACDf, 22, 0, -6, 2200, 0.7071, 0, 0
+ACDf, 22, 0, 0, 2200, 0.7071, 0, 0
+The signal should be routed through both filters by the calling program, in 
+series. To provide an overall gain of -6dB the first filter has been assigned a
+gain of -6dB and the second a gain of 0dB. Other combinations of gain that sum
+to -6dB are equally valid.
+
+C. A third order Butterworth low-pass filter having a corner frequency of 750Hz,
+reversed polarity, and no gain. From the table, we see that a BUT3 filter uses a
+first order filter plus a second order filter with Qp=1. The BUT3 filter is
+constructed from these two ACDf filters:
+ACDf, 1, -1, 0, 750, 0, 0, 0
+ACDf, 21, 1, 0, 750, 1, 0, 0
+To create the overall reversed polarity the first ACDf filter has reversed 
+polarity and the second has normal polarity.
+
+D. A 7th order Butterworth low-pass filter at 90Hz with normal polarity and no 
+gain.
+ACDf,  1, 0, 0, 90,    0, 0, 0  <-- first order LP stage @ 90Hz
+ACDf, 21, 0, 0, 90, 0.55, 0, 0  <-- second order LP stage @ 90Hz, Qp=0.55
+ACDf, 21, 0, 0, 90, 0.80, 0, 0  <-- second order LP stage @ 90Hz, Qp=0.80
+ACDf, 21, 0, 0, 90, 2.24, 0, 0  <-- second order LP stage @ 90Hz, Qp=2.24
+The signal should be routed through all four filters by the calling program, 
+in series.
+
+
+================================================================================
+
+Examples using Gstreamer:
+Under Gstreamer, LADSPA plugins are invoked in a different way. Gstreamer 
+converts each plugin name to a Gstreamer element name by compounding it with 
+"ladspa" and parts of the plugin name. For example, in my current system ACDf
+is listed as ladspa-acdf-v3-so-acdf-v3. If Gstreamer is installed on your system
+you can list all the available LADSPA plugins using the command:
+   gst-inspect-1.0 ladspa
+
+To implement the plugin as a pipeline element under gst-launch, you provide the
+element name and then a list of space-delimited parameter names and values, 
+separated by the equals sign, for which you would like to set the value to be
+different than the default value. See the table above for the default values for
+each parameter. When multiple filters are required, you separate each filter 
+with the "!" character. The "\" character allows continuation on the next line.
+
+The following filter examples A through D are identical to the section above:
+
+A. ladspa-acdf-v3-so-acdf-v3 type=2 fp=500 qp=0.7071
+
+B. ladspa-acdf-v3-so-acdf-v3 type=22 db=-6 fp=2200 qp=0.7071 ! \ 
+   ladspa-acdf-v3-so-acdf-v3 type=22 fp=2200 qp=0.7071
+   
+C. ladspa-acdf-v3-so-acdf-v3 type=1 polarity=-1 fp=750 ! \
+   ladspa-acdf-v3-so-acdf-v3 type=21 fp=750 qp=1
+   
+D. ladspa-acdf-v3-so-acdf-v3 type=1 fp=90 ! \
+   ladspa-acdf-v3-so-acdf-v3 type=21 fp=90 qp=0.55 ! \               
+   ladspa-acdf-v3-so-acdf-v3 type=21 fp=90 qp=0.80 ! \               
+   ladspa-acdf-v3-so-acdf-v3 type=21 fp=90 qp=2.24
+   
+
+
+Bug reports and Other Feedback
+~~~~~~~~~~~
+Please send suggestions for improvements, bug reports, or comments to:
+ACD@claub.net
+

@@ -1,0 +1,376 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                   Written by: Charlie Laub, 2025                            #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+      
+                       GSASysCon Basic Topics
+
+CONTENTS:
+Essential Parts of a GSASysCon System Configuration
+   Specifying the Audio Input and Output
+   Defining the Audio Flow Using ROUTEs and TEEs
+   The SYSTEM_INPUT and CLIENT_SINKs
+Example system_configuration Files:
+   A minimal configuration file
+   Adding DSP using ACDf LADSPA Filters
+   A DSP Loudspeaker Crossover that uses Shortcut Filter Names
+   How to specify digital delay as part of a ROUTE
+
+
+
+The first few topics below give an overview about how the signal flow in 
+GGSASysCon systems is configured. You may skip to the section "Example 
+system_configuration Files" and then re-read the intial section afterwards.  
+
+
+                                 
+________________________________________________________________________________
+
+             Essential Parts of a GSASysCon System Configuration:
+________________________________________________________________________________
+
+
+Specifying the Audio Input and Output:
+------------------------------------------------------------------------------
+The user must specify the audio input and output for the GSASysCon playback
+system. This is typically an ALSA card or device, but GStreamer source elements
+such as for PulseAudio (pulsesrc) can also be used. 
+To see a list of ALSA inputs, type:
+   arecord -l
+or
+   arecord -L
+
+To get a list of the names of GSASysCon inputs from the PulseAudio server, run 
+this command:
+   pactl list | grep -A2 'Source #' | grep 'Name: ' | cut -d" " -f2
+
+If your system has PulseAudio installed and you configure all of the output 
+devices to be "off" (e.g. using pavucontrol), PulseAudio creates a new "fake"
+sink with a monitor and you can use this device as input by setting the system
+input as follows:
+  SYSTEM_INPUT = pulsesrc device=auto_null.monitor
+Although it does not connect to any physical device, the volume of the null 
+monitor is still controlled by PulseAudio and keyboard volume controls.  
+
+Likewise, to see a list of ALSA outputs (sinks such as DACs) use the command: 
+   aplay -l
+or
+   aplay -L
+In the system_configuration file you specify the device to GSASysCon using
+ALSA's numbered nomenclature (from aplay -l) like this:
+   device=hw:0,0
+or using the descriptive naming convention (from aplay -L):
+   device="hw:CARD=some_card_name,DEV=0"
+
+Use the commands described above to list the inputs and outputs on your own 
+system whenever you need to find that information. We will return to this topic
+in a bit more detail below, in the section about SYSTEM_INPUTs and CLIENT_SINKs.
+
+
+Defining the Audio Flow Using ROUTEs and TEEs
+------------------------------------------------------------------------------
+The audio flow is described by a collection of ROUTEs. If you mapped out how 
+the audio flows through a crossover or other process from start to finish you 
+could break it down into segments that connect nodes where the audio begins 
+(at a source or input), where the audio splits (at a tee), and where the audio 
+flow ends (at an output or sink). Each of these segments is described using 
+this nomenclature:
+
+   ROUTE=route_start,route_end[,channel_assignment]
+
+ROUTE_START can be an input channel number or the name of a tee. 
+ROUTE_END can be the index/number of a sink, or the name of a tee
+CHANNEL_ASSIGNMENT is only used when the END is a sink, and is the audio channel
+   to which the ROUTE's audio should be sent. In GStreamer, channels begin with
+   channel 0. A stereo DAC will have two channels: 0 and 1, a multichannel DAC
+   will have additional channels. If a invalid channel is used, the pipeline
+   will fail to run. The program ALSAINFO.sh can be useful for determining what
+   channels are present on an ALSA sink. See the docs file for help.
+
+A typical DSP crossover system uses a parallel topology. This looks like this:
+   INPUT 0 ---> GLOBAL FILTERS ----> FILTERS ---> OUTPUT 0 ON SINK 0 
+                               +---> FILTERS ---> OUTPUT 1 ON SINK 0
+The diagram above represents the audio flow from one input channel to two output
+channels. Channel numbering starts at 0, which for stereo audio is the left
+channel. Observe that the signal flow branches internally, right after the 
+global filters. This requires a TEE, which is a node in the signal flow. TEEs 
+have one input but can have multiple outputs that are used as the route_source
+for other ROUTEs. Any non-reserved alphanumeric string can be used as a TEE 
+name, but the first character of the name must be non-numeric.  
+
+The signal flow consists of three routes: 
+INPUT to TEE, TEE to OUTPUT 0, and TEE to OUTUT 1. The corresponding ROUTE 
+statements are:
+   ROUTE=0,my_tee #starts with channel 0 of the audio source, end at the tee
+      (global filters are listed here)
+   ROUTE=my_tee,0,0 #starts with the tee, ends at channel 0 of audio sink 0
+      (filters for out 0 are listed here)
+   ROUTE=my_tee,0,1 #starts with the tee, ends at channel 1 of audio sink 0
+      (filters for out 1 are listed here)
+The indenting is just for convenience and to improve readability. If the
+crossover had additional output channels they would all use the tee "my_tee"
+as their route_start but would have different output channels. 
+
+To process stereo audio, an identical set of ROUTEs are needed for the other 
+input channel (channel 1), however, there are some ways to simplify how these 
+are written in the system_configuration file. See below, and the help file 
+"GSASysCon Advanced Topics.txt" for more info. Using the ROUTE concept, any 
+signal flow can be mapped and defined in a relatively straightforward fashion.
+
+NOTE: There is one situation where a tee is not required: when an input channel
+is used multiple times. If no global filters were required in the crossover
+described above, the ROUTEs could be written like this:   
+   ROUTE=0,0,0 #starts with input channel 0, ends at channel 0 of audio sink 0
+      (filters for out 0 are listed here)
+   ROUTE=0,0,1 #starts with input channel 0, ends at channel 1 of audio sink 0
+      (filters for out 1 are listed here)
+The source for both ROUTEs is the input channel "0". Since it is used more than
+one time, GSASysCon automatically creates a tee for it as part of the GStreamer
+pipeline. It is only when a tee is used internally in the crossover system that 
+it must be explicitly declared as a named tee. 
+  
+
+
+The SYSTEM_INPUT and CLIENT_SINKs
+------------------------------------------------------------------------------
+Now that we have explained the concept of ROUTEs, we can be more specific about
+how to describe the sources (inputs) and sinks (outputs) in the system 
+configuration file. 
+
+In GSASysCon, a system may have only one input, which connects to the audio 
+subsystem (e.g. ALSA) or other apps and programs that can feed audio in to the
+GStreamer pipeline. The SYSTEM_INPUT is declared using the following syntax: 
+    SYSTEM_INPUT = (GStreamer source element goes here)
+e.g.
+   SYSTEM_INPUT = alsasrc device=hw:0,0
+To direct GSASysCon to connect to a SYSTEM_INPUT with a specific audio rate and
+format instead of its default values, you provide this information as GStreamer 
+capabilities or "caps". The caps come after the input card or device info, and 
+are separated from them by an exclamation point "!" character. This follows the 
+convention used within GStreamer pipelines. For Example, to use as input an 
+ALSA card consisting of 2ch of 32 bit audio at 96kHz:
+
+SYSTEM_INPUT = alsasrc device='hw:CARD=USB,DEV=0' ! audio/x-raw, rate=96000, format=S32LE, channels=2
+
+The audio format specifier for GStreamer based systems omits the underscore 
+character used by ALSA. The most common formats for audio devices are: S32LE, 
+S24LE, and S16LE.
+
+A GSASysCon system can have one or more sinks. The CLIENT_SINKs connect the 
+output of the GStreamer pipeline to external devices such as DACs or other audio
+sinks. Each CLIENT_SINK is defined with a similar syntax:
+   CLIENT_SINK = (GStreamer sink element goes here)
+e.g.
+   CLIENT_SINK = alsasink device=hw:1,0
+The sample rate and audio format for a CLIENT_SINK are specified in a different 
+way. Because GStreamer pipelines constructed by GSASysCon run at a fixed sample
+rate, the sink rate is determined by the SYSTEM_INPUT specifier. On the other 
+hand, the output audio format can be different than the input format, and is 
+specified using the SINK_FORMAT parameter. This should be provided in the 
+system_configuration file after the CLIENT statement and prior to any 
+CLIENT_SINK it should apply to. It remains unchanged until another SINK_FORMAT
+specifier is encountered. If no SINK_FORMAT is specified, the sink's default 
+audio format will be used. The syntax is:
+   SINK_FORMAT = (GStreamer audio format specifier)
+e.g.
+   SINK_FORMAT = S16LE
+
+
+
+
+________________________________________________________________________________
+
+                      Example system_configuration Files:
+________________________________________________________________________________
+
+
+A minimal configuration file:
+------------------------------------------------------------------------------
+The system configuration file is always named "system_configuration" and is 
+placed into a directory that is created in system_control/system_info.
+
+Now let's start by describing a minimal system that contains:
+
+• an input, which in this case is the ALSA loopback device
+• a “client”, which in this case in the same as the machine the code is 
+   running on
+• one audio output sink on the client
+• two routes that describe how the input audio channels will be routed to
+   the output channels of the client audio sink.
+• The hash symbol “#” begins a comment.
+
+SYSTEM_INPUT = alsasrc device='hw:CARD=Loopback,DEV=1'
+CLIENT=LOCAL_PLAYBACK
+SINK_FORMAT=S32LE
+CLIENT_SINK=alsasink device='hw:CARD=USB,DEV=0' sync=false provide-clock=false
+ROUTE=0,0,0  #route input channel 0 to output device 0’s output ch 0
+ROUTE=1,0,1  #route input channel 1 to output device 0’s output ch 1
+
+Here each ROUTE connects an input channel to an output channel with the three 
+parameters indicating the input channel number, the output sink number, and 
+the output channel number. Channels and sinks are numbered starting from zero. 
+
+
+Adding DSP using ACDf LADSPA Filters:
+------------------------------------------------------------------------------
+Now let’s add some DSP. The filter chain is described by a list of DSP filters
+and/or GStreamer elements, one per line. To apply the chain to a route, the 
+list of statements are simply placed immediately after the route declaration 
+statement that they should act on:
+
+SYSTEM_INPUT = alsasrc device='hw:CARD=Loopback,DEV=1'
+CLIENT=LOCAL_PLAYBACK
+SINK_FORMAT=S32LE
+CLIENT_SINK=alsasink device='hw:CARD=USB,DEV=0' sync=false provide-clock=false
+ROUTE=0,0,0 #route input channel 0 to output device 0’s output ch 0
+   ladspa-acdf-so-acdf type=0 db=6 #add gain overall
+   ladspa-acdf-so-acdf type=24 db=4 fp=45 qp=1.0 #bass shelf/boost
+   ladspa-acdf-so-acdf type=26 db=-1.75 fp=800 qp=1.6 #PEQ band
+ROUTE=1,0,1 # route input channel 1 to output device 0’s output ch 1
+   ladspa-acdf-so-acdf type=0 db=6 #add gain overall
+   ladspa-acdf-so-acdf type=24 db=4 fp=45 qp=1.0 #bass shelf/boost
+   ladspa-acdf-so-acdf type=2 db=-1.75 fp=800 qp=1.6 #PEQ band
+
+Each new line describes an ACDf filter. In brief, to figure out what the ACDf
+filter type is doing, you look at the number assigned to "type". The first
+digit is the filter order and the second digit is as follows:
+1=lowpass, 2=highpass, 3=allpass, 4=bass shelf, 5=treble shelf
+Example: type 21 is a second order lowpass filter
+In addition to these basic types, there are a additional 2nd order filters for
+PEQ, LT, etc. Type 0 only applies gain and polarity. For complete info on all 
+the filter types see "ACDf_usage_notes.txt" in the docs folder.  
+
+These filters apply EQ to the audio passing through each route. Since this is 
+stereo audio we apply the same EQ to each channel. In the example we have 
+explicitly written out the same three ACDf filters below each ROUTE statement. 
+Next we will show how this can be simplified, and try some more sophisticated 
+routing and DSP processing.
+
+
+A DSP Loudspeaker Crossover that uses Shortcut Filter Names:
+------------------------------------------------------------------------------
+In this example we will describe a 3-way loudspeaker crossover with a parallel 
+topology similar to the example presented earlier in the section about ROUTEs 
+and TEEs. Rather than use ACDf filters to specify the digital signal processing,
+"shortcut names" for common loudspeaker crossover filters are used. These are 
+available to users of GSASysCon via filter definition files that are located in
+the filter_defs directory. 
+
+The crossover uses Butterworth and LR4 filters, and contains a practical 
+example of a TEE. 
+
+# begin file...
+
+#Import some filter definitions:
+INSERT_FROM_FILE Common_Loudspeaker_Crossover_Filters.txt
+INSERT_FROM_FILE Equalization_Filters.txt
+
+#describe the audio input and audio output of the system:
+SYSTEM_INPUT = alsasrc device='hw:CARD=Loopback,DEV=1' ! audio/x-raw, rate=44100, format=S32LE, channels=2
+CLIENT=LOCAL_PLAYBACK
+SINK_FORMAT=S24LE
+CLIENT_SINK= alsasink device='hw:CARD=8_channel_DAC,DEV=1'
+
+#global EQ filters:
+ROUTE=0,LEFT_INPUT; 1,RIGHT_INPUT
+  2nd-Order-High-Shelf CenterF=300 Qfactor=0.6 dB_gain=-5    #baffle-step EQ
+  2nd-Order-Low-Shelf CenterF=70 Qfactor=0.6 dB_gain=3       #bass boost
+  Parametric-EQ-Filter CenterF=1200 Qfactor=2.2 dB_gain=-2
+
+#woofer output on channels 0 and 1
+ROUTE=LEFT_INPUT,0,0; RIGHT_INPUT,0,1 
+  GAIN-AND-POLARITY dB_gain=4 signal_polarity=-1
+  LR4-LP XoverF=450
+
+#midrange output on channels 2 and 3
+ROUTE=LEFT_INPUT,0,2; RIGHT_INPUT,0,3 
+  LR4-HP XoverF=450
+  BUT3-LP XoverF=2750
+
+#tweeter output on channels 4 and 5
+ROUTE=LEFT_INPUT,0,4; RIGHT_INPUT,0,5 
+  GAIN-AND-POLARITY dB_gain=-3.5
+  BUT3-HP XoverF=2750
+ 
+#The sink is "8_channel_DAC" but only 6 channels are used by the crossover. 
+#  Unused channels on the sink must be explicitly declared, so we
+#  send muted audio to the last two output channels
+ROUTE=LEFT_INPUT,0,6; RIGHT_INPUT,0,7 
+  volume volume=0 #this is a GStreamer element
+
+# end file...
+
+The file starts with the INCLUDE_FROM_FILE directive. This is described in more
+detail in the "GSASysCon Advanced Topics" doc. This permits the use of the
+shortcut names for the crossover and EQ filters.
+
+The next few lines define where the audio is coming from and where it is going
+with this system. The source of audio is the ALSA loopback device. Because we 
+want to open the ALSA source with a particular audio rate and format, we provide
+a GSteramer caps string containing them. The CLIENT=LOCAL_PLAYBACK statement 
+indicates that the client is connected to the same computer on which GSASysCon
+is running. The output format is set to 24 bit audio and an ALSA device is 
+chosen to receive the output.
+
+The remainder of the file describes the audio flow and the DSP filtering that 
+the crossover will be performing. For the 3-way loudspeaker the filters 
+implement an LR4 crossover at 450 Hz and a 3rd order Butterworth crossover at 
+2.75k Hz. In addition, there are a couple of global filters that act on the 
+inputs before any crossover filters are applied. The "shortcut names" for the 
+filters make reading and writing the file simpler and more intuitive than with 
+the ACDf filters. Each shortcut name takes one or more parameters, e.g. to set
+the crossover frequency or other parameter.
+
+One GSASysCon feature used above is the co-listing of ROUTEs that use the same
+filters. This is done by listing these ROUTEs on the same line and separated 
+by a semicolon, e.g.:
+  ROUTE=LEFT_INPUT,0,0; RIGHT_INPUT,0,1
+This not only saves space but also prevents errors that might occur if each 
+ROUTE were written out separately. 
+
+The global filter ROUTEs end in two named tees. In the example, the tees are
+conveniently named LEFT_INPUT and RIGHT_INPUT to help the user keep track of
+how and where the audio is flowing. The output from the tees feeds the remaining
+ROUTEs that make up the three branches of the crossover. With 2 channel stereo 
+input, the crossover produces six output channels.
+
+In this hypothetical example, the 8 channel output card does not have a 6 
+channel mode so we must use the mode with the next higher number of channels 
+(8 channels). This leaves 2 channels unused. Because all channels of an output
+device must have audio routed to them, two additional "dummy" channels of muted 
+audio are created and fed to the remaining 2 channels. It can be useful to know
+exactly what channel count for a given audio rate and format is supported by the
+sink and GSASysCon comes with a useful program for checking these properties 
+called ALSAINFO.sh that can be found in the scripts directory. See the help file 
+"Using_the_ALSAINFO_App.txt" in the docs directory for usage information.
+
+See the help file "GSASysCon Advanced Topics" for further information on the
+concepts used in this system configuration.
+
+
+How to specify digital delay as part of a ROUTE
+------------------------------------------------------------------------------
+Digital delay is inserted using the special element "DELAY". Like a LADSPA 
+filter, the DELAY element appears on its own line below the ROUTE declaration. 
+The DELAY element uses the following syntax:
+   DELAY = value
+where value is the number of micro-seconds of delay to be generated. For 
+convenience the following values and the corresponding delay are provided:
+   when value = 1 the delay is 1 microsecond
+   when value = 1000 the delay is 1 millisecond
+   when value = 1000000 the delay is 1 second
+The DELAY element uses a GStreamer function that changes the pipeline clock
+time for the output by the given amount. It is not acting like a delay-line
+with resolution of 1 sample, but can be finer. Keep in mind that:
+   1 sample @ 48kHz = 20.8 microsends
+The smallest delay change that can be specified is 1 microsecond.
+
+
+
+
+  

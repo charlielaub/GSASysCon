@@ -1,0 +1,276 @@
+# Filter Definitions for some Common Loudspeaker Crossover Filters
+# Written by Charlie Laub, March 2025 
+# Version 1.0 
+
+#This file contains filter definitions for a number of common loudspeaker 
+#   crossover filters. Each is given as a multi-line variable. See the 
+#   GSASysCon Advanced Topics file in the docs directory for more information
+#   about multi-line variables. 
+
+# NOTE that the crossover frequency for each must be supplied as a parameter
+#  called XoverF when using the filter in the system configuration file.
+#  Example:
+#  ROUTE 0,0,0; 1,0,1
+#     LR4-HP XoverF=1500
+
+# Crossover and parameters names are case sensitive.
+# The value for the crossover frequency XoverF has units of Hertz
+
+
+# CROSSOVER FILTER LIST ------------------------------------------
+#   GAIN_AND_POLARITY (see below)
+#   1st Order highpass and lowpass filters
+#   2nd Order Butterworth highpass and lowpass filters
+#   2nd Order Linkwitz-Riley highpass and lowpass filters
+#   3rd Order Butterworth highpass and lowpass filters
+#   4th Order Butterworth highpass and lowpass filters
+#   4th Order Linkwitz-Riley highpass and lowpass filters
+#   5th Order Butterworth highpass and lowpass filters
+#   6th Order Butterworth highpass and lowpass filters
+#   6th Order Linkwitz-Riley highpass and lowpass filters
+#   7th Order Order Butterworth highpass and lowpass filters
+#   8th Order Butterworth highpass and lowpass filters
+#   8th Order Linkwitz-Riley highpass and lowpass filters
+# END FILTER LIST ------------------------------------------------
+
+
+DEFINE_VARIABLE reversed_polarity=-1
+
+
+# Filter Name: GAIN-AND-POLARITY
+# Parameter names: signal_polarity, dB_gain
+# Description: GAIN-AND-POLARITY is used to change the gain and/or polarity of
+#   the signal. Both parameters are optional.
+  DEFINE_MULTILINE_VARIABLE GAIN-AND-POLARITY
+  DEFAULT_VALUES db_gain=0 signal_polarity=1
+     ladspa-acdf-so-acdf type=0 polarity=signal_polarity db=dB_gain
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 1stOrder-LP
+# Parameter names: XoverF
+# Description: The first order lowpass filter
+  DEFINE_MULTILINE_VARIABLE 1stOrder-LP	
+    ladspa-acdf-so-acdf type=1 fp=XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 1stOrder-HP
+# Parameter names: XoverF
+# Description: The first order highpass filter
+  DEFINE_MULTILINE_VARIABLE 1stOrder-HP	
+    ladspa-acdf-so-acdf type=2 fp=XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR2-LP
+# Parameter names: XoverF
+# Description: The second order lowpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR2-LP	
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.5
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR2-HP
+# Parameter names: XoverF
+# Description: The second order highpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR2-HP	
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.5
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT2-LP
+# Parameter names: XoverF
+# Description: The second order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT2-LP
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.7071
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT2-HP
+# Parameter names: XoverF
+# Description: The second order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT2-HP
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.7071
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT3-LP
+# Parameter names: XoverF
+# Description: The third order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT3-LP
+    ladspa-acdf-so-acdf type=1 fp=XoverF
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT3-HP
+# Parameter names: XoverF
+# Description: The third order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT3-HP
+    ladspa-acdf-so-acdf type=2 fp=XoverF
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR4-LP
+# Parameter names: XoverF
+# Description: The fourth order lowpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR4-LP	
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.7071
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.7071
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR4-HP
+# Parameter names: XoverF
+# Description: The fourth order highpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR4-HP	
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.7071
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.7071
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT4-LP
+# Parameter names: XoverF
+# Description: The fourth order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT4-LP
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.31
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT4-HP
+# Parameter names: XoverF
+# Description: The fourth order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT4-HP
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.31
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT5-LP
+# Parameter names: XoverF
+# Description: The fifth order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT5-LP
+    ladspa-acdf-so-acdf type=1 fp=XoverF
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.62
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.62
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT5-HP
+# Parameter names: XoverF
+# Description: The fifth order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT5-HP
+    ladspa-acdf-so-acdf type=2 fp=XoverF
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.62
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.62
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR6-LP
+# Parameter names: XoverF
+# Description: The sixth order lowpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR6-LP	
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.5
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.0
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR6-HP
+# Parameter names: XoverF
+# Description: The sixth order highpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR6-HP	
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.5
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.0
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT6-LP
+# Parameter names: XoverF
+# Description: The sixth order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT6-LP
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.52
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.7071
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.93
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT6-HP
+# Parameter names: XoverF
+# Description: The sixth order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT6-HP
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.52
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.7071
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.93
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT7-LP
+# Parameter names: XoverF
+# Description: The seventh order lowpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT7-LP
+    ladspa-acdf-so-acdf type=1 fp=XoverF
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.55
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.8
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=2.24
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT7-HP
+# Parameter names: XoverF
+# Description: The seventh order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT7-HP
+    ladspa-acdf-so-acdf type=2 fp=XoverF
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.55
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.8
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=2.24
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR8-LP
+# Parameter names: XoverF
+# Description: The eighth order lowpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR8-LP	
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.0
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: LR8-HP
+# Parameter names: XoverF
+# Description: The eighth order highpass Linkwitz-Riley filter
+  DEFINE_MULTILINE_VARIABLE LR8-HP	
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.54
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.0
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=1.0
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT8-LP
+# Parameter names: XoverF
+# Description: The eighth order lowpass Butterworth filter 
+  DEFINE_MULTILINE_VARIABLE BUT8-LP
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.51
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.6
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.9
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=2.56
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: BUT8-HP
+# Parameter names: XoverF
+# Description: The eighth order highpass Butterworth filter
+  DEFINE_MULTILINE_VARIABLE BUT8-HP
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.51
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.6
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=0.6
+    ladspa-acdf-so-acdf type=22 fp=XoverF qp=2.56
+  END_MULTILINE_VARIABLE
+

@@ -1,0 +1,240 @@
+Usage Notes for LADSPA plugin OnOffDelay version 2.0
+November 2018
+Charlie Laub
+
+Info:
+The OnOffDelay LADSPA controls one or more GPIO outputs with on-delay and 
+off-delay behavior under a linux OS. The plugin monitors each of two (e.g. 
+stereo) inputs and compares the level to a user definted "Threshold" to
+determine when the GPIO should be turned on or off. Both the "turn-on" and
+"turn-off" behaviors can be delayed and the audio can be muted and faded-in
+at turn-on. The turn-on behavior follows this sequence:
+  ON condition met > delayON delay > latency period > relay turns on
+For more complete details, please read the "Programmer's Notes" section later
+in this document.
+
+GPIO stands for 'General-purpose Input/Output', a generic pin on an integrated
+circuit that has a behavior that can be controlled by the user at run time.
+
+LADSPA is a platform for implementing audio processing algorithms as "plugins" 
+that are called by a host program. Some examples of host programs include 
+ecasound (Linux), ALSA (Linux), and Sox (Linux and Windows). Before use, 
+plugins must be compiled for the operating system under which the host is 
+running.  
+
+===============================================================================
+OnOffDelay plugin calling syntax:
+
+The OnOffDelay plugin is invoked using the name of the plugin, 'OnOffDelay', 
+followed by up to six parameters. The separator used between parameters may be
+host dependent - in the examples below a comma has been used as the separator. 
+
+The calling syntax is:
+OnOffDelay, Threshold, DelayOFF, DelayON, IndexList, TurnOnBehavior, Latency  
+
+The parameters are:
+PARAMETER___________________WHAT IT DOES_______________________________________
+Threshold. . . . . . . . . .Sets the Threshold for turn on/off changes in dB
+                              below the maximum level (below 0dB). The value
+                              for the Threshold parameter is a positive number
+DelayOFF. . . . . . . . . . Sets the delay time before the GPIOs are set to off
+DelayON. . . . . . . . . . .Sets the delay time before the GPIOs are set to on
+IndexList. . . . . . . . . .An integer that lists all the indeces of the GPIOs
+                              Each index is mapped to an actual GPIO in the code
+                              Please read the Programmer's Notes section titled:
+                              "Specifying GPIO pins via the 'index_to_GPIO_map'
+                              array" for more information
+TurnOnBehavior. . . . . . . A real number in the format D.F (D=delay, F=fade)
+PassThru. . . . . . . . . . 0->perform muting/fading, 1->audio output=input
+
+Note that all parameters except the Threshold are optional. When a parameter is
+not supplied, a default value will be substituted. The default value can be
+changed by editing the code (after which the plugin must be recompiled for this 
+to take effect). The unedited default values are listed below:
+PARAMETER___________________DEFAULT VALUE______________________________________
+DelayOFF. . . . . . . . . . 120 seconds
+DelayON. . . . . . . . . . .0 seconds
+IndexList. . . . . . . . . .0 (index 0)
+TurnOnBehavior. . . . . . . 0.0 (delay = 0 seconds, fade = 0 seconds)
+PassThru. . . . . . . . . . 0 (perform muting and fading operations)
+
+Some parameters have a minimum and/or maximum permitted value or are bounded. 
+Bounds on each variable can be changed by editing the code (after which the
+plugin must be recompiled for this to take effect). The unedited values for the
+parameter bounds are as follows:
+PARAMETER___________________MIN / MAX__________________________________________
+Threshold. . . . . . . . . .20 / 186 dB
+DelayOFF. . . . . . . . . . 0 seconds min, no max
+DelayON. . . . . . . . . . .0 seconds min, no max
+IndexList. . . . . . . . . .supplied number must be > 0 or the default is used
+TurnOnBehavior. . . . . . . supplied number must be > 0 or the default is used
+                              delay value (left of decimal point) is limitless
+                              fade value is first digit right of decimal point
+Latency. . . . . . . . . . .supplied number must be > 0 or the default is used
+
+NOTE: all time values must be in units of seconds.
+
+
+
+USAGE EXAMPLES ================================================================ 
+
+USAGE EXAMPLE 1:
+In this example, a relay is connected by a driving circuit to the GPIO pin
+assigned to index 5. We wish the relay to turn on immediately if the audio
+level is greater than -60dB and turn off if the audio fails to rise above the
+threshold value for 300 seconds (5 minutes). We don't wish to mute the audio or
+fade up the audio at turn on, and we find that the system latency is about 20
+milliseconds (0.020 seconds). The following command would be used:
+  OnOffDelay, 60, 300, 0, 5, 0.0, 0
+The following is the same (only supplying values where required)
+  OnOffDelay, 60, 300, , 5, ,
+Note that a blank space is provided when a parameter value is not supplied but
+one or more subsequent parameters will be assigned a value  
+
+USAGE EXAMPLE 2:
+The relay from example #1, above, was connected to the amplifier power supply.
+The audio came on immediately while the amplifer was still stabilizing, and it
+might be nicer if the audio was muted for a couple of seconds and then brought
+up to full level gradually. To do this we use the mute-and-fade feature:
+  OnOffDelay, 60, 300, 0, 5, 5.4, 0 
+The TurnOnBehavior is no longer 0.0, but has been changed to 5.4 to
+cause a 5 second muting period followed by 4 seconds of fade in. The mute and
+fade behavior are for the audio only, and take place during the 'on' sequence
+as soon as the DelayON period has passed.
+
+USAGE EXAMPLE 3:
+Even though we muted the audio for 5 seconds at amplifier turn-on, there are
+still some funny noises and a DC surge sent to the speakers while the amp is
+stabilizing. It would be nice if the drivers could be connected to the amp only
+after this behavior subsides. We use another relay connected to the GPIO pin
+corresponding to index 2, and we decide that we can connect the speakers after
+about 4 seconds during which the first plugin is muting the audio. We use 
+a second plugin and place it ahead of the existing plugin in the tool chain
+like this: 
+INPUT --> OnOffDelay #2 --> OnOffDelay #1 --> other LADSPA plugins
+We arrange the plugins in this way because the audio is being muted by the
+OnOffDelay #1 plugin. The new OnOffDelay plugin is inserted upstream of it and
+PassThru is set to 1 so that audio is passed on, unchanged. The parameters for
+the first OnOffDelay plugin remain the same, and OnOffDelay #2 is set up like
+this:
+  OnOffDelay, 60, 299, 4, 2, 0.0, 1
+The same Threshold (-60dB) is used so that the behavior will be the same. 
+DelayOFF was reduced by one second to 299 secs so that the relay will open just
+before the amplifier PS relay opens. DelayON is set to 4 seconds so that this
+relay will turn on 4 seconds after the amp PS relay connects power. The
+IndexList is changed to 4 because we are controlling the relay that
+is connected to the GPIO that corresponds to index 4. We don't want any muting
+or fade in for this plugin, so we disable these by supplying 0.0 for the 
+TurnOnBehavior. Setting PassThru to 1 allows the audio stream to pass through
+to OnOffDelay #1 so it can be used as input.
+
+Usage Example 4:
+Oops, we are using an active 3-way speaker and we need to disconnect all three
+drivers from the amplifier. We could hook three more relays to the single
+relay that was used above, but instead we will just control all three relays
+directly from GPIOs simultaneously. We already have a relay on index 4, and we
+add index 2 and 3. Now OnOffDelay#2 looks like this:
+  OnOffDelay, 60, 299, 234, 2, 0.0, 1
+The only change is that the IndexList has been changed to '234' to
+indicate the plugin should control the GPIOs at index 2,3, and 4 together.
+
+Usage Example 5 - minimalist plugin call:
+  OnOffDelay, 80
+In this example the minimum number of parameters are specified (only the 
+Threshold). All other parameters are not explicitly given. Their values are 
+populated by zeroes by the LADSPA host. The resulting plugin behavior is: 
+DelayOn = immediate, DelayOFF = 120 sec, no muting or fade in at turn-on, input
+audio will pass through to the output, and the GPIO corresponding to index 0
+will be controlled. The default value for each parameter can be edited in the
+code, making it possible to redefine the default behavior.
+
+
+=============================================================================== 
+
+
+                              Programmer's Notes:
+
+Overview: 
+  The purpose of this plugin is to control one or more GPIO outputs
+  with on-delay and off-delay behavior under a linux OS. When entering the
+  'on' state, the plugin sets one or more GPIO pins to 'high'. When entering
+  the 'off' state, these same GPIO pins are set to 'low'. The GPIO pins can
+  be used to trigger external equipment like relays, put amps or power supplies
+  into standby, etc. The plugin monitors each of two (e.g. stereo) inputs. 
+  
+Audio Trigger Threshold: 
+  The plugin's two audio inputs are both analyzed and used to trigger the
+  on-delay and off-delay behavior of the output. The peak level of the input
+  (e.g. audio signal) is monitored and compared to a reference level called the
+  'Threshold', specified in dB below maximum. When the peak level within a
+  frame exceeds the threshold, a timer is started. As long as the peak signal
+  level continues to exceed the Threshold the timer will count up. When the
+  timer exceeds the value for the plugin's DelayON parameter the output is set
+  to 'on'. Similarly, when the peak level within a frame does not exceed the
+  threshold, a timer is again started. As long as the peak level continues to
+  be below the Threshold for each frame, the timer will count up. When the
+  timer exceeds the value for the plugin's DelayOFF parameter the output is
+  set to 'off'.
+  
+Options for Audio Signal Behavior at Turn-On:
+  The plugin has the ability to first mute and then fade-up the audio level
+  when 'turning on' the output after the DelayON period has completed. The
+  duration of the muting and fade-in are both specified through a real-
+  valued parameter in the format of M.F, where M is the number of seconds the
+  audio signal should be muted and F is the number of seconds over which the
+  fade-in should take place. M.F is a real number with digits to the left and
+  right of of the decimal point. For example, 3 seconds of muting followed
+  by two seconds of fade-in would be provided as the parameter '3.2'. The
+  signal fades in from the level set by the Threshold parameter to the full 
+  level over the number of seconds indicated. M and F are given in increments
+  of whole seconds due to the integral nature of the M.F representation. An
+  unlimited number of seconds of muting and up to 9 seconds of audio fade-in 
+  can be specified in this way. If no muting or fade-in at turn-on is desired,
+  simply supply the value 0.0 or omit the parameter entirely.
+  
+ Controlling Multiple GPIOs simultaneously from the same plugin instance:
+  From one to seven GPIOs can simultaneously be turned on (HIGH logic state) or 
+  turned off (LOW logic state) from the same plugin. The user provides the
+  plugin with a number which is a concatenated list of one or more indexes. The
+  default index is 0. If no index is supplied, the GPIO for index 0 is used.
+  If index 0 is used in a list, it must come after at least one non-zero index 
+  (e.g. zero cannot be the first digit). For example, if the user wishes to
+  toggle the GPIOs corresponding to indexes of 0,2,3 and 7 then 7320 would be
+  provided as input to the plugin. All are turned on and off simultaneously. 
+
+Specifying GPIO pins via the 'index_to_GPIO_map' array: 
+  The user tells the plugin which GPIO(s) should be controlled using an index
+  (0..9). Internally, the 'index_to_GPIO_map' array is used to translate the
+  index to the actual GPIO number on the computing hardware. The plugin code
+  has been supplied with a set of otherwise unused GPIOs for the Raspberry Pi
+  models 2 and 3. The 'map can be changed to control other GPIOs and for other
+  computing hardware by editing the entries in the 'GPIO#' column that are
+  found in the plugin code and are provided for reference below: 
+
+    index         GPIO#   physical location on the R-Pi J8 header 
+#define GPIO_0      4;              //pin #7
+#define GPIO_1     17;              //pin #11
+#define GPIO_2     27;              //pin #13
+#define GPIO_3     22;              //pin #15
+#define GPIO_4     12;              //pin #32
+#define GPIO_5     16;              //pin #36
+#define GPIO_6     20;              //pin #38
+#define GPIO_7     21;              //pin #40
+#define GPIO_8     19;              //pin #35
+#define GPIO_9     26;              //pin #37
+
+
+  
+License Info:
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.

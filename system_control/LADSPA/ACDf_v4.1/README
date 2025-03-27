@@ -1,0 +1,53 @@
+README file for ACD-plugins v2.0
+
+Installing LADSPA
+~~~~~~~~~
+LADSPA should be installed first. 
+
+Check that the environment variable LADSPA_PATH is set and contains the
+path to the plugins, so they can be found by a host.  
+
+To set the environment variable try something like this:
+
+export LADSPA_PATH=/usr/local/lib/ladspa:/usr/lib/ladspa
+
+The export command should be placed in a file such as ~/.profile, ~/.bashrc or
+a similar location that will be read on startup or login (note: the tilde (~) 
+character indicates the user's home directory). 
+
+
+
+Compiling and Installing the plugins
+~~~~~~~~~
+To install these plugins, type: 
+   make
+then   
+   sudo make install
+
+By default this installs plugins in /usr/local/lib/ladspa.  If
+you want them to go somewhere else, edit the Makefile.
+
+
+
+Optimizating the code for faster execution on your hardware
+~~~~~~~~~
+The Makefile does not include any flags that direct the compiler to generate 
+code that makes use of special CPU processing that can speed up the execution 
+of the code by several times or more, e.g. by using SSE. For instance the GCC 
+march=CPU_type compiler option will try to optimize the code for the CPU 
+indicated. Please consult the GCC man pages for more information. A web search 
+about optimizing for your hardware is also a good resource.
+
+
+
+
+Bug reports and Other Feedback
+~~~~~~~~~~~
+Please send suggestions for improvements, bug reports, or comments to:
+   ACD@claub.net
+
+Thanks to all that came before me!
+
+Enjoy,
+   Charlie Laub
+

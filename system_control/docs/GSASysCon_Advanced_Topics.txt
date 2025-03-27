@@ -1,0 +1,885 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                       Written by: Charlie Laub, 2025                        #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+
+                         GSASysCon - Advanced Topics
+
+CONTENTS:
+System Configuration File Tips and Tricks
+   Comments Within GSASysCon Input Files
+   About User Variables
+   Defining and Using Single-Line Variables
+   Defining and Using Multi-Line Variables
+   HINTS About Choosing Variable or Parameter Names
+   File Insertion
+   Co-Listing Route Declarations that share the same processing
+   About Filter Definition Files
+   Using the Filter Definitions in a System Configuration File
+   Channel Mixing/Up-Mixing/Defining New Channels
+   Triggering Other software while launching/terminating a GSASysCon 
+      Local System
+   Using Multiple DACs within the same client
+   Using Multiple Clients within the same system
+   About the ALSA Loopback
+   Multiple Instances of GSASysCon
+Volume Control via GSASysCon
+   Using the volume control
+   Configuring the volume control in the system_configuration file
+   Volume Control Specification
+   Customizing the volume control
+HOW TO USE GSASysCon WITH REMOTE CLIENTS:
+   Overview
+   Preparing the SERVER and CLIENT
+   Automating SSH for GSASysCon
+   The System_configuration File for a Remote Client
+   System Configuration for Multiple Remote Clients 
+   Improving the Synchronicity of Multiple Remote Clients
+   Triggering Other software while launching/terminating a GSASysCon
+      Remote System
+
+
+
+
+
+________________________________________________________________________________
+
+                   System Configuration File Tips and Tricks: 
+________________________________________________________________________________
+
+
+Comments Within GSASysCon Input Files
+--------------------------------------------------------------
+The user may add comments to all files used by GSASysCon. Comments are any text
+that comes after the hash character "#". When files are read by GSASysCon, the
+first action is to scan the line for this character. When it is found, the 
+hash character and the remainder of the line after it is removed before any
+further processing is performed on the line. Any number of comments or comment
+lines are permitted. Any blank lines or lines which become blank after comments
+are removed will be skipped. 
+
+
+About User Variables:
+--------------------------------------------------------------
+The system configuration file allows for the use of variables. This can be 
+useful, for example when elements are repeated or used in multiple places in the
+file. When the file is being processed by the GSASysCon app, wherever the 
+variable name appears the contents of that variables are substituted for it.
+Variable definitions should be made before any client declarations, in the top
+section of the configuration file. 
+
+
+Defining and Using Single-Line Variables:
+--------------------------------------------------------------
+Single-line user variables are defined via the statement:
+   DEFINE_VARIABLE var_name = var_value
+To use the variable, simply include the var_name elsewhere in the file. 
+
+The var_name should be unique and must not be a keyword or system command, etc.
+Single-line variable replacement is performed after all the multi-line variable
+replacements have been completed. Therefore, a single-line variable name can be
+used in a multi-line variable or as a parameter for one.    
+
+
+Defining and Using Multi-Line Variables:
+--------------------------------------------------------------
+A slightly different form allows the user to declare multi-line variables. 
+Multi-line variable contents are defined between lines that contain the 
+statements:
+   DEFINE_MULTILINE_VARIABLE var_name
+and
+   END_MULTILINE_VARIABLE
+Any value or lines so defined are substituted later in place of var_name. 
+
+For example, before the ROUTEs you write:
+   DEFINE_MULTILINE_VARIABLE tweeter_LR4_HP
+      ladspa-acdf-so-acdf type=22 fp=2200 qp=0.707 
+      ladspa-acdf-so-acdf type=22 fp=2200 qp=0.707 
+   END_MULTILINE_VARIABLE
+
+Given that variable definition, as part of the ROUTE you can simply write:
+   ROUTE=0,0,0; ROUTE=1,0,1
+      tweeter_LR4_HP
+
+This will be expanded by GSASysCon to:
+   ROUTE=0,0,0; ROUTE=1,0,1
+      ladspa-acdf-so-acdf type=22 fp=2200 qp=0.707 
+      ladspa-acdf-so-acdf type=22 fp=2200 qp=0.707 
+
+Multi-line variables are used intensively in the filter definition files. These
+provide additional features and are described later in this document.
+
+
+HINTS About Choosing Variable or Parameter Names:
+--------------------------------------------------------------
+The values for both single-line user variables and the parameters of multi-line
+variables are substituted using a global replacement method within the text of 
+the system configuration file. There are no restrictions placed on the names 
+used, and it is possible to use a variable that is a reserved word or otherwise 
+already has an existing meaning within GSASysCon or the ACDf LADSPA plugin. A 
+good approach is to use descriptive words rather than abbreviations that might 
+already be a word or part of one.
+
+
+File Insertion:
+--------------------------------------------------------------
+Another type of substitution is file insertion. In this case the directive
+   INSERT_FROM_FILE filepath-name
+is supplied. Filepath-name is the path and filename of the file that should
+be inserted into the system_configuration file at the current line. 
+
+There are three ways to provide the file-path name:
+
+1. Full path: provide the full path on the filesystem to the file, and the
+filename, as one string. The full path will include the path to your home
+directory and farther to where ever the file is located, e.g
+   /home/charlie/somedir/another_dir/my_file.txt
+
+2. Path starting with the tilde character "~". The tilde character is an OS 
+  symbol that represents your home directory. GSASysCon will just expand it to
+  the path for the account, that is listed when you type 'echo $HOME'
+
+3. When only the filename is provided, GSASysCon assumes this file is located
+  in the 'filter_defs' directory that is part of the GSASysCon file structure 
+
+If the file is not found, GSASysCon aborts the system launch and places a 
+message about it in the log file.
+
+File insertion is used along with multi-line variables in the filter definition
+files. These are described later in this document. 
+
+NOTE that file insertion can be used recursively, that is if the file being 
+inserted contains another INSERT_FROM_FILE directive, it will also perform 
+insertion.
+
+
+Co-Listing Route Declarations that share the same processing
+--------------------------------------------------------------
+In the system configuration file, ROUTEs define paths for audio between sources
+or inputs, and sinks or outputs. Lines that are not ROUTE statements include 
+DSP filers or GStreamer elements. In some cases these statements are identical
+for two or more ROUTEs. Instead of repeating the list again, these ROUTEs are
+listed on the same line, separated by a semicolon, with the list below. For
+example the explicit listing of all ROUTE elements might look like this:
+   ROUTE=0,0,0
+   filter 1
+   filter 2
+   GStreamer element 1
+   ROUTE=1,0,1
+   filter 1
+   filter 2
+   GStreamer element 1
+but can be written like this:
+   ROUTE=0,0,0; ROUTE=1,0,1
+   filter 1
+   filter 2
+   GStreamer element 1
+The result is exactly the same. In the GSASysCon app, the lines are expanded 
+back to the explicit version. This is helpful when processing stereo (2-channel)
+audio, because usually the same processing is applied to both left and right 
+channels. 
+
+
+About Filter Definition Files
+--------------------------------------------------------------
+Filter definition files contain one or more multi-line variables that provide
+shortcut crossover and equalization filter names to the user. These files can
+be found in the system_control/filter_defs directory.
+
+Each filter definition within the file has the following structure:
+  DEFINE_MULTILINE_VARIABLE var_name
+    [DEFAULT_VALUES parameter1=value1 parameter2=value2]
+    line1 something something_else parameter2 etc.
+    [line2 ...]
+      ...
+    [line N - any number of lines can be included]
+  END_MULTILINE_VARIABLE
+where the square brackets indicate an optional parameter or value.
+*  var_name: the shortcut name of the multi-line variable 
+*  DEFAULT_VALUES: an optional list of default parameter values for the 
+      parameters used within the filter definition
+*  line1, line2...line N: the multi-line variable contents consists of one or 
+      more lines that are typically ACDf filters but GStreamer elements are 
+      also allowed.
+
+Example:
+  DEFINE_MULTILINE_VARIABLE LR4-LP
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.707
+    ladspa-acdf-so-acdf type=21 fp=XoverF qp=0.707
+  END_MULTILINE_VARIABLE
+
+In the example, a multi-line variable called "LR4-HP" is defined. There is one 
+parameter, XoverF. Since the DEFAULT_VALUES line was omitted, there are no 
+default parameter values. Any parameter for which there is no default value 
+is a required parameter. There may be comments associated with the filter 
+definition (e.g. just above or below it) that list its parameters and provide 
+usage hints.
+
+NOTE that all parameter names are case sensitive!
+
+
+Using the Filter Definitions in a System Configuration File
+--------------------------------------------------------------
+In order to use a filter definition as part of a system configuration, the file 
+containing the filter definition is included using an INSERT_FROM_FILE 
+statement. The INSERT_FROM_FILE statements must be placed before any client 
+related definitions or statements, typically at the top of the system 
+configuration file. 
+
+The shortcut filter name is listed on a line within a ROUTE. Required 
+parameters are placed after the shortcut name in parameter_name=value pairs 
+e.g:
+  LR4-LP XoverF=1000
+When default parameter values exist within the filter definition, if the user 
+does not supply their own parameter value the default will be used. An example
+of the user of filter definitions and shortcut names can be found in the doc
+GSASysCon Basic Topics. 
+
+To see a list of the filters available, please read the file(s) located in the
+filter_defs directory. 
+
+
+Channel Mixing/Up-Mixing/Defining New Channels
+--------------------------------------------------------------
+Sometimes the user would like to define/create a new channel from the existing
+two stereo channels, 0 and 1. For example, a mono channel that is an equal mix
+or sum of left and right. This is done with the use of a mixing expression. The
+mixing expression creates new channels (on the server side when there are 
+streaming clients) using the following nomenclature:
+   SERVER_CHANNEL_MIXING = mixing_expression_1 mixing_expression_2, etc.
+Note that each mixing expression is separated by a space (the list is space
+delimited). No spaces are allowed within mixing expressions. The existing 
+channels are replaced by the list to create new channels that are numbered 
+sequentially starting at 0. 
+Each mixing expression has the form:
+   fraction_channel_0,fraction_channel_1
+where fraction is the amount of that channel (valid values lie between 0 and 1)
+that will contribute to the new channel. The new channel number is its position
+within the SERVER_CHANNEL_MIXING list/string.
+Example: Making a new mono audio channel
+Mono audio is simply an equal mix of left (channel 0) and right (channel 1) 
+channels. To create a new channel, we write:
+   SERVER_CHANNEL_MIXING = 1.0,0.0 0.0,1.0 0.5,0.5
+There are three channels in the list, and these will replace the existing two
+channels 0 and 1. The new channels will be numbered 0,1, and 2. 
+The first "new" channel is formed with the mixing expression:
+   1.0,0.0
+This is 1.0 times channel 0 and 0.0 times channel 1. It's 100% channel 0, which
+is the left channel. So the new channel 0 will be 100% the old left channel. It
+is exactly the same as before, but we have to include it to retain the original
+channel 0 since the new channels will replace the existing ones.
+The next "new" channel in the string has this mixing expression:
+   0.0,1.0
+This is 0.0 times the left channel and 1.0 times the right channel. It's 100%
+the right channel, which is what channel 1 was before, but since we do not want
+to change channel 1 we have to specify it again in this position.
+Finally we have as the last channel in the list:
+   0.5,0.5
+This is 0.5 times the old channel 0 and 0.5 times the old channel 1, or a 50/50
+mix of each channel. This is our mono channel. It will now be available as 
+channel 2, as an input channel for the ROUTEs used in this system.
+
+Up-mixing and other uses
+Up-mixing can be done to create new channels out of existing ones. Each new
+channel is simply a weighted sum of the original channels. A similar function
+is to create three stereo channels out of the original two channels, sometimes
+called "trinaural audio". A mixing expression that can do this is:
+   SERVER_CHANNEL_MIXING = 0.833,-0.167 -0.167,0.833 0.527,0.527 0.5,0.5
+The output is four channels: left, center, right, and mono. These can be used
+by any client that is listed later in the same system_configuration file by
+channel number 0,1,2, or 3. The mixing expression follows the recommendation 
+of Elias Pekonen and is based on the work of Gerzon.
+
+NOTE: the SERVER_CHANNEL_MIXING statement must appear before any CLIENT
+definitions in the system_configuration file and only applies to clients that
+are specified in the same file.  
+
+
+Triggering Other software while launching/terminating a GSASysCon Local System
+--------------------------------------------------------------
+As part of system_configuration file the user can define single-line command or 
+shell scripts that they wish to be executed when the system is being turned on
+or off. For example, a shell script might be used to perform an action in another
+program, or to trigger an external device or relay, etc. There are many 
+potential uses for this versatile capability.
+
+When the client is a LOCAL_PLAYBACK client, the following can be used:
+   LOCAL_SCRIPT_BEFORE_LAUNCH
+   LOCAL_SCRIPT_AFTER_LAUNCH
+   LOCAL_SCRIPT_BEFORE_TERMINATE
+   LOCAL_SCRIPT_AFTER_TERMINATE
+
+The usage syntax is keyword = filepath-name, e.g.
+ 
+   LOCAL_SCRIPT_BEFORE_LAUNCH = /home/charlie/my_scripts/do_something.sh
+
+Keywords are one of the four listed above. BEFORE/AFTER and LAUNCH/TERMINATE 
+refer to when the script should be executed in relation to the launch or 
+terminate action for the system. For 
+example:
+  LOCAL_SCRIPT_BEFORE_LAUNCH = turn_on_amplifiers.sh
+would run the script "turn_on_amplifiers.sh" before launching the GStreamer 
+pipeline. These scripts reside on the local machine and will be executed on 
+the local machine.
+
+
+Using Multiple DACs within the same client
+--------------------------------------------------------------
+Multiple DACs can be used by declaring each as a CLIENT_SINK. Each sink runs
+independently, so playback is not guaranteed to be synchronous (this depends on
+the interface clocking, etc.). ROUTE statements for channels that should route
+to a client sink must be declared below that CLIENT_SINK and before the next
+CLIENT_SINK is declared. 
+
+
+Using Multiple Clients within the same system
+--------------------------------------------------------------
+Systems that use multiple remote clients can be created. Each client is 
+defined in turn, beginning with the "CLIENT" keyword, its ROUTEs, etc. and then
+the next client is defined. A GStreamer pipeline that simultaneously streams 
+audio to all of the clients in the system_configuration file will be launched.
+This makes is possible for a system to comprise multiple speakers and/or
+subwoofers. When using multiple remote clients the synchrony between clients
+becomes important. See the section "Keeping Multiple Clients Synchronized" in 
+this document for more information on that topic.  
+
+
+About the ALSA Loopback:
+------------------------------------------------------------------------------
+The Linux ALSA audio subsystem can be configured to include a "loopback" device.
+This is done by adding 'snd_aloop' to the file /etc/modules and then rebooting.
+
+The loopback has some behaviors that should be understood in order to configure 
+and use them correctly. To check if the ALSA Loopback device has been enabled, 
+type "aplay -l" at the command prompt. The output will include something like 
+the following (NOTE: there will be other ALSA devices listed in addition to 
+the loopback):
+
+**** List of PLAYBACK Hardware Devices ****
+card 0: Loopback [Loopback], device 0: Loopback PCM [Loopback PCM]
+  Subdevices: 7/8
+  Subdevice #0: subdevice #0
+  Subdevice #1: subdevice #1
+  Subdevice #2: subdevice #2
+  Subdevice #3: subdevice #3
+  Subdevice #4: subdevice #4
+  Subdevice #5: subdevice #5
+  Subdevice #6: subdevice #6
+  Subdevice #7: subdevice #7
+card 0: Loopback [Loopback], device 1: Loopback PCM [Loopback PCM]
+  Subdevices: 8/8
+  Subdevice #0: subdevice #0
+  Subdevice #1: subdevice #1
+  Subdevice #2: subdevice #2
+  Subdevice #3: subdevice #3
+  Subdevice #4: subdevice #4
+  Subdevice #5: subdevice #5
+  Subdevice #6: subdevice #6
+  Subdevice #7: subdevice #7
+
+The default loopback device comes with 8 subdevices (0-7), and each of these is
+like a pipe that can function in one "direction" or the other, that is you can
+put audio into one end of the pipe and take it out of the other. These pipes 
+are very useful for connecting audio-processing programs much like a patch-bay.
+
+The loopback is described with the following format:
+Loopback,DEV=device#,SUBDEV=subdevice#
+Each of the 8 Loopback "pipes" is enumerated (specified) using the SUBDEV field.
+Each pipe has two ends, numbered 0 and 1. These are enumerated/specified using 
+the DEV field. So, for example using the loopback shown above, to 
+connect the output of program 1 to the input of program 2 you do the following:
+PROGRAM 1: send output to card 0, device 0, subdevice 0 is written
+   hw:CARD=Loopback,DEV=0,SUBDEV=0
+PROGRAM 2: read input from card 0, device 1, subdevice 0 is written:
+   dsnoop:CARD=Loopback,DEV=1,SUBDEV=0
+Additional pipes can be created as a different subdevice. Each is independent
+of the other including the audio format, and the order that subdevices are used
+does not matter. If no subdevice is specified, subdevice 0 is used by default.
+
+If there will be more than one GSASysCon system operating at a time, the 
+dsnoop Loopback plugin should be used - it allows more than one connection to 
+read the output of a Loopback pipe. This makes it possible for several GStreamer 
+instances to run in parallel, each taking a 'copy' of the audio from the 
+loopback output while the input is fed from a single source such as an audio 
+player or PulseAudio. 
+
+It is possible to launch GSASysCon and connect a GStreamer process
+to the Loopback output before any audio has been delivered to the Loopback 
+input. If no rate and format information is used when making the initial
+connection ALSA will apply its default values. When the second connection is
+made (e.g. from a source) if it uses another format the audio will be corrupted
+or the connection will fail. To prevent this problem, the audio rate and format
+can be specified immediately after the alsasrc statement, following the 
+exclamation mark "!" to separate the two. This tells GStreamer to expect this
+audio data when opening the alsa source. Example:
+   alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! audio/x-raw,rate=96000,format=F32LE,channels=2
+
+In general a fixed rate must be used for both connections to the loopback pipe,
+and this can be chosen ahead of time. For example, PulseAudio resamples all 
+audio to a fixed rate and with a format that is specified in its configuration 
+file. Choosing an appropriate set of parameters and high quality resampling 
+ensures that audio will always be of high quality.
+
+
+Multiple Instances of GSASysCon 
+--------------------------------------------------------------
+The GStreamer pipelines launched by GSASysCon are independent of it and will
+continue to run if the systems are "ON" when you exit GSASysCon. All instances
+of GSASysCon are independent, so when one is running you can start another 
+instance of GSASysCon in another terminal on the machine (or remotely from 
+another computer over an SSH or similar connection) and you will see the same 
+status information and will be able to control the systems as if you were in the 
+original terminal where the first instance was run.
+
+One use for this could be on a headless system that you log on to via an SSH
+session. You can log on, launch a GSASysCon system, exit GSASysCon, log off the
+machine, and the system and its GStreamer pipeline should continue to run as
+long as the system's input and output devices remain active when the user is
+logged off.
+
+A related usage is when there are two DIFFERENT GSASysCon instances running at
+the same time on the same computer. This is used to link multiple-inputs to
+multiple outputs, or "preamp-like" behavior. For more information please see
+the document "About the Global Configuration File".   
+
+
+
+
+________________________________________________________________________________
+
+                          Volume Control via GSASysCon
+________________________________________________________________________________
+
+
+Using the volume control:
+--------------------------------------------------------------
+The volume control feature can be accessed when GSASysCon is operating in the
+preamp mode. From the control interface, type "v" or "m" and press enter. The 
+view will change to the volume control interface. Typing "m" immediately mutes
+the audio. The following keys can be used in the volume control interface:
+   u - "up volume", increases volume 
+   d - "down volume", decreases volume
+   m - toggles muting on and off
+   v - exits and returns to the GSASysCon system control interface
+It is not necessary to press enter while in the volume control interface after
+pressing one of the other keys. Holding down the u or d key results in volume
+changes with acceleration. 
+
+Configuring the volume control in the system_configuration file
+--------------------------------------------------------------
+The volume control can only be used when:
+   the system_configuration includes volume control instructions
+   the audio card supports volume controls
+Only simple controls may be used. GSASysCon implements volume control using the
+amixer command line interface. To obtain information about the simple controls
+for a particular audio card or device, do the following:
+   1. use aplay -l or aplay -L to get the number or name of the card or device 
+      you wish to control
+   2. enter " amixer -c [card#] scontrols" or "amixer -D [device] scontrols" 
+      where card# is the card number (e.g. 1,2,3) and device is the device name
+The axmixer output consists of one or more lines beginning with "Simple mixer
+control" followed by the name-string of the control. 
+Copy the name string for the control you wish to manipulate. In the
+system_configuration file, add a line of text to define the volume control. This
+line must appear before any client definitions. For example:
+   VOLUME_CONTROL = device:pulse > Master > %volume
+In this case, the control is of the ALSA device called "pulse" using a control
+name "Master". These fields are separated by the ">" character. This is the 
+PulseAudio master volume control that you can also change via a keyboard up or
+down volume control key (some keyboard include these multimedia keys) or via
+the graphical alsamixer application.
+The last field in the volume control definition allows the user to restrict the
+controls in certain ways. 
+
+
+Volume Control Specification:  
+--------------------------------------------------------------
+A volume control is specified as follows:
+   VOLUME_CONTROL = type:ID > control_name > action
+where 
+   type is one of 'card' or 'device', and ID identifies the control of that 
+      type, e.g. card number or device name. 
+   control name is the name of the scontrol on that card/device that the volume 
+      control should vary, and 
+   action is used to limit the available actions (see below) 
+the '>' character separates each field of the volume control. 
+Multiple cards and controls may be listed, each separated by a semicolon, e.g.:
+   VOLUME_CONTROL = type:ID>control_name>action; type:ID>... etc.
+The action specifier format is:
+  the ! (not) or % (only) permission control character preceding one of the 
+     action words mute, unmute, toggle, or volume 
+  examples: 
+    !mute - perform all actions except mute 
+    %volume - only perform volume control actions
+
+Customizing the volume control:
+--------------------------------------------------------------
+The appearance of the volume control is customized in the system_configuration
+file, typically immediately following the line containing the volume control
+specification. Options include:
+   VOLUME_CONTROL_STYLE can be one of graphical or numerical. When set to 
+      graphical, the user can also specify how many columns wide the graphic
+      should be, with a default of 50 columns.
+   VOLUME_CONTROL_TIMEOUT is the number of seconds before the volume control
+      mode will time out and return to the user interface screen, if there is
+      no further user input. This takes an integer as its argument.
+Example:
+When using the following lines in the system_configuration file:
+   VOLUME_CONTROL = device:pulse > Master
+   VOLUME_CONTROL_STYLE = graphical
+   VOLUME_CONTROL_TIMEOUT=15
+The volume control appears like this:
+   VOL >|||||||||||||||||.................................<   [on]
+   press u to increase, d to decrease, m to mute, or v to exit
+If the STYLE is changed to numeric, the volume control screen looks like this:
+   VOL: [36%] [on]
+   press u to increase, d to decrease, m to mute, or v to exit
+
+
+
+________________________________________________________________________________
+
+                   HOW TO USE GSASysCon WITH REMOTE CLIENTS:
+________________________________________________________________________________
+
+
+Overview:
+--------------------------------------------------------------
+Remote clients open up new possiblities for playback. To describe how remote 
+clients work under GSASysCon the concepts of a local SERVER and a remote CLIENT
+will be used. The SERVER is the computer that the user physically interacts 
+with, typically to play audio. GSASysCon is installed on the SERVER computer 
+(only). A CLIENT is another computer running a Linux OS that can be accessed 
+via the local area network but does not have GSASysCon installed on it. 
+GStreamer is installed on both the SERVER and the CLIENT. There is only one 
+SERVER but any number of CLIENTs can be deployed, and a system can contain more
+than one remote CLIENT. Using the streaming mode of GSASysCon, the user can 
+play audio simultaneously on multiple systems, giving GSASysCon the ability to
+control and distribute audio in more sophisticated ways.
+
+When a system containing a remote client is run by GSASysCon, GSASysCon logs in
+to the CLIENT computer over an SSH session. This happens automatically without
+any user interaction. Over SSH, GSASysCon constructs and then runs a GStreamer
+pipeline on the CLIENT. This pipeline receives audio that is sent from the
+SERVER over the LAN in RTP packets. DSP processing is performed on the CLIENT
+using ACDf and finally the audio is sent to the CLIENT sink (e.g. a DAC). At the
+same time, on the SERVER GSASysCon constructs another GStreamer pipeline that 
+takes the audio from the system input, packages it into RTP packets, and sends 
+it over the LAN to the client. All of these steps happen automatically, without 
+any user interaction, by GSASysCon. The user only interacts with the SERVER and
+audio is produced from the DAC on the client. This is illustrated below:
+
+          SERVER:                                                     
+         GSASysCon ---------( commands over SSH )---------> CLIENT:
+              :                                                :
+audio ==>> GStreamer ========= ( RTP via LAN ) =========>  GStreamer => DAC
+
+When the system is terminated by the user on the SERVER, GSASysCon again uses
+SSH to log into the CLIENT, where it kills the GStreamer process. At the same
+time it kills the server-side GStreamer pipeline that is sending audio data to
+the CLIENT over the LAN and audio stops being produced by the CLIENT's DAC.
+
+From the point of view of writing the system configuration file for a system
+with a remote client, it is very much like for a local client. Instead of
+setting CLIENT=LOCAL_PLAYBACK you instead specify the IP address of the remote
+client, and then add a second line that provides login information to GSASysCon:
+  CLIENT = IP_address
+  ACCESS = account_name@IP_address
+Several additional parameters set the rate and bit depth of the stream, and tell
+GSASysCon how to configure the GStreamer RTP connection. The remainder of the
+system configuration remains unchanged, and refers to how the audio will be
+processed (the ROUTEs and their DSP processing) on the client.
+
+
+Preparing the SERVER and CLIENT:
+--------------------------------------------------------------
+We will now describe the additional steps that are necessary for remote client 
+playback. This includes installing SSH software on the SERVER and setting up 
+an RSA key to allow for automated and password-less login by GSASysCon. The
+software and configuration requirements are:
+  SERVER:
+    install GSASysCon
+    install GStreamer
+    install OpenSSH or other SSH server
+    identify the IP address of the server computer
+    generate RSA key
+  CLIENT:
+    install GStreamer
+    install ACDf
+    identify the IP address of the client computer
+    install RSA key
+NOTES: 
+GSASysCon is NOT installed on the CLIENT!
+When using Raspberry OS, you may need to enable SSH on the CLIENT with the
+command: "sudo raspi-config nonint do_ssh 1" or use the raspi-config utility.
+
+If you have not yet confirmed the installation of GStreamer on the CLIENT, 
+please do so now. You may use the same procedure that is outlined in the 
+SetupGuide document to confirm and/or install the necessary GStreamer 
+components. If you wish to use DSP processing, the ACDf LADSPA plugin must be
+installed on the client. You may either copy the ADCf directory from 
+system_control/LDSPA over to the client or, when logged into the client type:
+  wget http://audio.claub.net/software/LADSPA/ACDf_v4.1.tar
+Extract the tar file by typing
+  tar -xvf ACDf_v4.1.tar
+Then install ACDf by performing the make and sudo make install steps that are
+outlined in the SetupGuide document. Make sure to add the LADSPA path to the
+.profile file in the home directory on the CLIENT.
+
+Install OpenSSH or other SSH Server:
+On the SERVER computer, install the software OpenSSH. On Debian based systems:
+  sudo apt update
+  sudo apt install -y openssh-server
+This program is not installed in e.g. Ubuntu with the default OS install. SSH
+(Secure Shell) is a network protocol that provides secure remote access between
+computer systems. 
+
+
+Automating SSH for GSASysCon:
+--------------------------------------------------------------
+In order to launch the GStreamer "receive" pipeline on each client (so that it
+will receive and play the audio stream), the code must be able to automatically
+SSH into a user account on the client and this typically requires a password.
+To make it possible for GSASysCon to perform an SSH login without prompting the
+user for a password each time, we will set up a secure key and transfer it from
+the SERVER to the CLIENT. The key permits password-less logins by the SERVER
+on the CLIENT.
+
+Before proceeding, the IP address of both the server and client are needed. The
+graphical user interface (GUI) for some operating system can show you the IP
+address for the computer based on how it is connecting to the LAN. If you do not
+have a GUI installed or wish to identify the IP address from the command line, 
+use the ip command. Type:
+  ip a | grep 'inet '
+This will produce at least two lines, possibly more. For example:
+  inet 127.0.0.1/8 scope host lo
+  inet 192.168.1.253/24 brd 192.168.1.255 scope global dynamic noprefixroute enp2s0
+  inet 192.168.1.202/24 brd 192.168.1.255 scope global dynamic noprefixroute wlp1s0
+The IP address appears immediately after "inet". What the IP address is 
+associated with or bound to is indicated by the last group of characters on the
+same line. There are three different IP addresses shown in the example:
+  127.0.0.1 is associated with "lo"
+  192.168.1.253 is associated with "enp2s0"
+  192.168.1.202 is associated with "wlp1s0"
+The first line is the "loopback" or "localhost" IP address and is the same for
+all systems. The other lines are the IP addresses of the hardcable ethernet 
+adapter and the WiFi adapter. The hardcable ethernet adapter names will start
+with the letters "en" and wireless adapter names with "wl".
+
+Copy or write down the non "localhost" addresses for both the server and the 
+client. You will need to choose how you wish to have GSASysCon connect to the
+client, e.g. to which adapter you want to connect (hardcable or wifi) if both 
+are available. 
+
+Now that you know the IP addresses, the next step is to create an RSA key on the
+server and transfer it to the client using the steps below. 
+
+NOTE that in the steps below, the IP address of the CLIENT is denoted as "B" 
+and the user account on the client as "b". Make sure to substitute the actual 
+IP address and account name for these placeholders in the commands below!
+Example:
+  client IP address = 192.168.1.123 = B
+  user account name on client = charlie = b
+Then b@B is written as:
+  charlie@192.168.1.123
+ 
+
+STEP 1. Generate a public RSA Key. Note that step 1 only needs to be done once. 
+  For subsequent clients after the first, only perform steps 2,3 and 4 below. 
+  Change directory into the home directory on the server and issue the command:
+    ssh-keygen -t rsa
+  This will generate a new SSH key and store it in the file .ssh/id_rsa.pub. 
+STEP 2. If you have not done so before, log into the CLIENT via SSH by typing:
+    ssh b@B
+  Make sure to substitute the IP address and account name for B and b!
+  You may be presented with a warning and asked to OK the connection. After a 
+  successful login, Log back out of the client to return to the server. Change 
+  directory into your home directory by typing "cd ~".   
+STEP 3. On the SERVER, issue the command:
+    ssh b@B mkdir -p .ssh
+  making sure to substitute the client's IP address for "B" and the account name
+  for "b". This will log into the client and create a directory called .ssh. SSH
+  then exits and you are back on the server as before.
+STEP 4. Finally, issue the command:
+    cat .ssh/id_rsa.pub | ssh b@B 'cat >> .ssh/authorized_keys'
+  This copies the public key from the server to the client. Note that only steps
+  2,3 and 4 are repeated for subsequent clients. When prompted for a password 
+  enter the password for the user account on the client. 
+
+You can verify that this procedure was succesful by attempting a new SSH login
+to the client by typing:
+    ssh b@B
+The password will no longer be needed. The above procedure for generating and 
+sharing a public key was taken from:
+  http://www.linuxproblem.org/art_9.html
+
+The only remaining steps are to modify or write a system configuration file to
+use the remote client as a system client. Please review how to do this in the
+next section.
+
+
+The System_configuration File for a Remote Client
+--------------------------------------------------------------
+For a remote client, the system_configuration file must contain the following 
+four pieces of information:
+1. the rate and bit depth of the audio format that will be streamed:
+
+   STREAM_BITS=24               #sets bit depth of stream and playback
+   STREAM_RATE=96000            #sets sample rate of stream and playback
+
+2. configuration info for GStreamer's RTP payloader:
+
+   SERVER_RTBIN_PARAMETERS = (rtpbin parmeters for the server) 
+
+3. the IP address and SSH connection information:
+
+   CLIENT=192.168.1.235        #one line per client indicating IP and channel
+   ACCESS=ssh charlie@192.168.1.235
+
+4. client side configuration info for GStreamer's RTP de-payloader:
+
+   CLIENT_RTBIN_PARAMETERS = (rtpbin parmeters for the client)
+
+The remainder of the system_configuration file is written in the same manner as 
+when the client is a local client. The description of the routing and DSP again 
+begins with the lines:
+   SINK_FORMAT = S32LE
+   CLIENT_SINK = alsasink device='hw:CARD=...
+just like with a local client.
+
+A list of RTPBIN properties are provided separately for the server and client 
+and configure the GStreamer rtpbin element on each side. For complete 
+information, see the online GStreamer rtpbin documentation. A few important 
+parameters include: 
+LATENCY - the latency parameter sets the size of the RTP receive buffer on the 
+   client, with the value given in milliseconds. This is only a valid parameter 
+   for the client. The default value is 200 (milliseconds).
+BUFFER-MODE - the buffer-mode parameter tell GStreamer how to synchronize the 
+   client pipeline clock. When there is no NTP clock synchronization, server-
+   client synchronization can still be attempted when this parameter is set to
+   "slave". When server and client clocks are disciplined via NTP, the value
+   should be set to "synced". The default value is "slave".
+NTP-SYNC - When set to true, tells the client and server to use the NTP time
+   source for the pipeline run clock. The default value is false.
+NTP-TIME-SOURCE - when server and client clocks are disciplined by NTP, this
+   parameter should be set to "ntp", otherwise "unix" or "clock-time". The
+   default value is "ntp".
+   
+Examples:
+Without clock discipline using chrony/NTP, the default values for most 
+properties will work well. In this case you may still want to specify a value
+for the latency on the client different from the default value, so set:
+   CLIENT_RTBIN_PARAMETERS = latency=100
+The SERVER_RTBIN_PARAMETERS strings can be omitted/left empty.
+When using chrony/NTP for clock discipline of both server and client, set both
+the server and client strings like this:   
+   SERVER_RTBIN_PARAMETERS = ntp-time-source=ntp ntp-sync=true
+   CLIENT_RTBIN_PARAMETERS = ntp-time-source=ntp ntp-sync=true 
+      buffer-mode=synced latency=100 
+Note that the client parameters should all be declared on a single line, and
+the line break above is only for readability. You may choose a different 
+latency value, however 100 msec is a conservative value. Values as low as 20 
+may work without producing underruns. Consult the GStreamer rtpbin documentation
+for other parameters that can be used.
+
+
+System Configuration for Multiple Remote Clients
+--------------------------------------------------------------
+A system can consist of one or more remote clients, each described within their
+own section of the system configuration file. A new client begins with the 
+CLIENT and ACCESS statements. Until the next pair of CLIENT and ACCESS 
+statements are encountered, all ROUTEs and SINKs are associated with the current
+client. Multiple clients are simply listed in series in the system configuration
+file as needed. The source channels always refer to the channels coming from
+the SERVER side, while the sink channels will refer to the sink(s) associated
+with the current client. When a new remote client is declared, the sink index 
+numbering resets to zero.
+
+
+Improving the Synchronicity of Multiple Remote Clients 
+--------------------------------------------------------------
+Several things influence when the audio is "rendered" out of the client via a 
+DAC. RTP timestamps carry information about timing for each frame of audio,
+and this can be used to organize and synchronize playback based on the local
+clock of the client or other time source.
+
+GStreamer has advanced synchronization mechanisms, but all require some clock 
+source to be available on each client. One such source is the clock in the OS
+itself. The challenge is to get all system clocks running at the same rate and 
+with the same time. There is a
+
+A standard protocol for this is called "Network Time Protocol" (NTP). NTP is a 
+framework for adjusting the clock of a computer to bring it into sync with one
+or more external "reference" clocks. There are a number of different software
+implementations of the NTP protocol, however, I prefer the app "chrony". It
+can be installed with a package manager such as "apt" from the standard
+repositories. Please see the chrony documentation for complete information on
+setup and configuration 
+
+Because there is delay and jitter in the responses from the external time 
+references this influences the ability of NTP to well-synchronize the local 
+clock. The more distant and poorly synchronized the external reference is, the
+greater the error that is created. Choosing a poor set of reference clocks can
+lead to errors on the order of several milliseconds, which is too high. One 
+useful strategy is to dedicate a local computer to act as a NTP timeserver, and
+find a few good quality stratum1 or stratum 2 timeservers that are physically
+near by. The next level of sophistication is to create three such local servers,
+each with a different set of external timeservers. An even higher level of 
+sophistication is to use GPS PPS as the time source for your local timeservers, 
+as time from a GPS source has very high precision and is considered to be at
+the stratum 1 level. By having a timeserver on your LAN, the local systems (the
+server and client) can all be well-synchronized to a single time and jitter
+will be reduced to the minimum. 
+  
+All clients and the server should use chrony to discipline their clocks on 
+intervals between every 32 seconds (maxpoll 5) and 128 seconds (maxpoll 7). 
+Using this approach, and with public NTP servers, I am able to get the clocks 
+on the server and all clients to be within 0.5 milliseconds or better. With GPS 
+based timeservers this falls to under 0.1 milliseconds. This is close enough 
+synchronization that separate clients from left and right speaker give the 
+proper presentation of the soundstage image without any wander. I prefer the 
+app chrony over the NTP app and it seems to work better and sync faster than 
+the Linux NTP app. 
+ 
+TIP: On low-power ARM systems, CPU frequency scaling and WiFi power saving 
+features can hinder NTP. It is recommended that the system is run at a fixed 
+CPU frequency. 
+
+When very tight synchrony is desired, the SYNCHRONIZED_PLAYBACK parameter should
+be set to "true" in the system_configuration file: 
+   SYNCHRONIZED_PLAYBACK = true
+Because it is a parameter specific to a client, the SYNCHRONIZED_PLAYBACK 
+parameter should appear AFTER the CLIENT and ACCESS statements for each
+client in the system_configuration that should be synchronized, but before any 
+ROUTEs are declared. This enables additional RTCP based feedback from the client
+to the server that improves the playback timing for that client. This is only 
+effective when the connection between server and client is very good over the 
+LAN -  this does not work well when using a congested WiFi connection. The 
+default state for SYNCHRONIZED_PLAYBACK is false, and in that case only RTP 
+timestamps are used for playback timing. This is typically still good enough
+for synchronicity of multiple systems that are not located too close to each 
+other, e.g. in rooms that are not adjacent and synchronicity may drift over
+time by up to the amount of the LATENCY parameter declared as part of the
+CLIENT_RTBIN_PARAMETERS string. 
+
+
+Triggering Other software while launching/terminating a GSASysCon remote system
+--------------------------------------------------------------
+When the client is a remote client, the behavior of the "LOCAL_SCRIPT..." 
+keywords (previously explained) is different. In this case the script file 
+resides on the server filesystem, but will be executed on the remote client 
+over an SSH connection. This can result in some confusion for variables, and 
+naming, so for remote clients there are four additional keywords:    
+   OTHER_COMMAND_BEFORE_LAUNCH
+   OTHER_COMMAND_AFTER_LAUNCH
+   OTHER_COMMAND_BEFORE_TERMINATE
+   OTHER_COMMAND_AFTER_TERMINATE
+These refer to commands or script files that reside on the client, and that 
+will also be executed on the client. In this case the filepath-name to the
+script is the filepath-name on the client and not on the server.
+

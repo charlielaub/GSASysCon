@@ -1,0 +1,103 @@
+# Filter Definitions for Equalization Filters
+# Written by Charlie Laub, March 2025 
+# Version 1.0 
+
+#This file contains filter definitions for a number of common equalization
+#   filters. Each is given as a multi-line variable. See the GSASysCon Advanced
+#   Topics file in the docs directory for more information about multi-line 
+#   variables. 
+
+# NOTE that the parameters for each EQ filter must be supplied after the EQ 
+#   filter name when using the filter in the system configuration file.
+#  Example:
+#  ROUTE 0,0,0; 1,0,1
+#     Parametric-EQ-Filter dB_gain=3.5 CenterF=750 Qfactor=2.2
+
+# Filter and parameters names are case sensitive.
+# All frequency variables have units of Hertz
+# Gain variables are in units of Decibels
+
+
+
+# EQ FILTER LIST -------------------------------------------------
+1st-Order-Low-Shelf
+1st-Order-High-Shelf
+2nd-Order-Low-Shelf
+2nd-Order-High-Shelf
+Parametric-EQ-Filter
+Linkwitz-Transform
+Constant-Slope-EQ
+# END EQ FILTER LIST ---------------------------------------------
+
+
+
+
+# EQ Filter Name: 1st-Order-Low-Shelf
+# Parameter names: dB_gain, CenterF
+# Applies a gain of dB_gain below the frequency CenterF  
+  DEFINE_MULTILINE_VARIABLE 1st-Order-Low-Shelf
+     ladspa-acdf-so-acdf type=4 db=dB_gain fp=CenterF
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: 1st-Order-High-Shelf
+# Parameter names: dB_gain, CenterF
+# Applies a gain of dB_gain above the frequency CenterF  
+  DEFINE_MULTILINE_VARIABLE 1st-Order-High-Shelf
+     ladspa-acdf-so-acdf type=5 db=dB_gain fp=CenterF
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: 2nd-Order-Low-Shelf
+# Parameter names: dB_gain, CenterF, Qfactor
+# Applies a gain of dB_gain below the frequency CenterF with Q=Qfactor
+  DEFINE_MULTILINE_VARIABLE 2nd-Order-Low-Shelf
+     ladspa-acdf-so-acdf type=24 db=dB_gain fp=CenterF qp=Qfactor 
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: 2nd-Order-High-Shelf
+# Parameter names: dB_gain, CenterF, Qfactor
+# Applies a gain of dB_gain above the frequency CenterF with Q=Qfactor  
+  DEFINE_MULTILINE_VARIABLE 2nd-Order-High-Shelf
+     ladspa-acdf-so-acdf type=25 db=dB_gain fp=CenterF qp=Qfactor
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: Parametric-EQ-Filter
+# Parameter names: dB_gain, CenterF, Qfactor
+# Applies boost or cut of dB_gain at the frequency CenterF with Q=Qfactor
+  DEFINE_MULTILINE_VARIABLE Parametric-EQ-Filter
+     ladspa-acdf-so-acdf type=26 db=dB_gain fp=CenterF qp=Qfactor
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: Linkwitz-Transform
+# Parameter names: F_spkr, Q_spkr, F_new, Q_new
+# Applies a Linkwitz-Transform filter. This will change the apparent response
+#   of a driver in a closed box from F_spkr, Q_spkr to F_new, Q_new
+  DEFINE_MULTILINE_VARIABLE Linkwitz-Transform
+     ladspa-acdf-so-acdf type=28 fp=F_new qp=Q_new fz=F_spkr qz=Q_spkr
+  END_MULTILINE_VARIABLE
+
+
+# EQ Filter Name: Constant-Slope-EQ
+# Parameter names: dB_per_decade 
+# Applies a filter with constant slope having a fixed number of decibels per 
+#   decade across the entire audio band. Positive values tilt "up" and negative
+#   values tilt "down". The gain of the tilt is always 0dB at the center of the 
+#   audio band, 632Hz.
+# Note that there are 3.322 octaves per decade. If you set dB_per_decade=-9.97
+#   the filter is known as a "pinkening filter" and has a slope of -3dB per 
+#   octave. 
+  DEFINE_MULTILINE_VARIABLE Constant-Slope-EQ
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=30.00
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=104.0
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=360.3
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=1249
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=4238
+     ladspa-acdf-so-acdf type=4 db=-0.5617*dB_per_decade fp=15000
+     ladspa-acdf-so-acdf type=0 db=1.7094*dB_per_decade
+  END_MULTILINE_VARIABLE
+
+

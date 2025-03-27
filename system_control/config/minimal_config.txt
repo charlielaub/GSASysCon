@@ -1,0 +1,8 @@
+#..............................................................................#
+#          GSASysCon: the Gsreamer Streaming Audio System Controller           #
+#                                                                              #
+#                       Minimal Configuration Settings                         #
+#..............................................................................#
+   OPERATING_MODE = preamp
+   SESSION_TITLE = GSASysCon:
+

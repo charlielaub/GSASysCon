@@ -1,0 +1,20 @@
+#first_test system configuration file
+
+#the Gstreamer source 'audiotestsrc' is used to generate an audio signal
+#the caps string applies the audio rate and format to the source
+#the two channels are routed from the system input to the client sink
+#the Gstreamer sink 'fakesink' simply deletes the audio samples reaching it
+
+#this system is only useful to check for a sucessful GSASysCon installation
+#after the check has been completed sucessfully, this file and the directory 
+#   that contains it can be deleted or modified
+
+
+SYSTEM_INPUT = audiotestsrc ! audio/x-raw,rate=48000,format=S16LE,channels=2
+CLIENT = LOCAL_PLAYBACK
+SINK_FORMAT = S16LE
+CLIENT_SINK = fakesink sync=false #declares the first client sink (sink 0)
+ROUTE = 0,0,0   #route input channel 0 to sink 0’s output ch 0
+ROUTE = 1,0,1   #route input channel 1 to sink 0’s output ch 1
+	
+ 

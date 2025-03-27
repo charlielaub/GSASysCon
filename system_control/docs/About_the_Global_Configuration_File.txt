@@ -1,0 +1,281 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                       Written by: Charlie Laub, 2025                        #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+
+                    ABOUT THE GLOBAL CONFIGURATION FILE
+
+CONTENTS:
+About
+Global Configuration File Parameters:
+Example Global Configuration Files
+   The minimal_config.txt file included with GSASysCon
+   Dual Global Configuration Files for preamp-like operation
+
+
+
+
+
+About the Global Configuration File:
+--------------------------------------------------------------
+The global configuration file controls aspects of GSASysCon itself, as opposed
+to audio systems that are run with GSASysCon. Global configuration files are 
+found in the directory: 
+   system_control/config
+GSASysCon is supplied with a config file called "minimal_config.txt" that can
+be used as a starting point for a single local system operating in "preamp 
+mode". See below for further information regarding the use of the configuration
+file for other purposes.
+
+ 
+Global Configuration File Parameters:
+--------------------------------------------------------------
+
+The following parameters impact the look and behavior of GSASysCon. Note that 
+most of these are optional except where indicated. The default value is shown
+for parameters that have them. These are declared using the format:
+   PARAMETER = value
+except where indicated. When the default value is acceptable there is no need
+to include the parameter in the global configuration file.
+
+TIMEOUT_TIME
+default value = 30 (seconds)
+   number of seconds for 'run once' mode to time out
+
+SYS_NUM_WIDTH
+default value = 5 columns
+   width of the system number field in the status output
+
+RUNTIME_WIDTH
+default value = 16 columns
+   width of the runtime field in the status output
+
+LOG_MAX_LINES
+default value = 100
+Sets the maximum number of lines to retain in the log file. The length of the 
+file is check at startup, and the file is truncated as needed.
+
+RAM_FS_ROOT
+default value = /dev/shm
+Because GSASysCon is disk intensive, it has been designed to copy all files into
+memory and then operate there, so that the fixed disk is not over-used. The
+parameter "RAM_FS_ROOT" points to the file location in memory. Linuxes have an
+in-memory part of the file system. On most systems this is at /dev/shm but if 
+your OS uses another location you can use a different path. Do not change this 
+parameter unless you know what you are doing! 
+
+DEBUG_INFO_PATH
+default value = ~/GSASysCon_debug
+This path is where debugging info is written The DEBUG state is not typically
+used except for development and when doing error tracing. You may change this 
+path to any that you prefer.
+
+OPERATING_MODE = [ preamp | streaming ]
+The OPERATING_MODE changes the behavior of GSASysCon in the following way. There
+are two possible modes - preamp and streaming.
+preamp mode: preamp mode enables the volume control feature. Only one "system"
+   can be running at a time, and turning on a new system will turn off the 
+   previous one. This mode makes GSASysCon function like the input side of a 
+   preamp.
+streaming mode: In this mode, the volume control is disabled. Any number of
+   systems can be running at the same time. This allows GSASysCon to function 
+   like the output (playback selection) side of an integrated amplifier that 
+   has or had the knob to select A, B, A+B outputs. GSASysCon can support as
+   many systems as the user would like to create, not just "A" and "B". The
+   parameter AUDIO_SOURCE must be specified in the config file as a valid
+   audio card, device or other source that will be used for all the systems
+   running under a streaming mode instance of GSASysCon. 
+
+SESSION_TITLE 
+The session title appears at the top of the screen when GSASysCon has been 
+launched in run-continuous mode. You can edit this field as you wish. 
+
+SYSTEMS_FILEPATH 
+The SYSTEMS_FILEPATH is an optional parameter. It should point to an existing
+subdirectory of:
+   system_control/system_info
+This is only needed when two different instances of GSASysCon are used to mimic
+a preamp, to keep separate the "systems" described for inputs and output. For
+basic operation this variable is omitted or left blank
+
+LOG_FILENAME
+default value = logfile
+The user can specify a name for the log file. This is useful when two different 
+instances of GSASysCon are used to mimic a preamp, to keep separate the logs for
+each instance, for example "output_log" and "input_log". Any valid name can be
+used.  
+
+SHOW_SYSTEM_MESSAGES
+Include this flag (no field is assocated with it) to display additional messages
+in the run_continuous text display. Because this is a flag, there is no value
+to assign. Simply include the flag name in the file.
+
+AUDIO_SOURCE
+In streaming mode, all systems use the same audio source, so the parameter 
+AUDIO_SOURCE must be included in the config file, and the SYSTEM_INPUT is 
+omitted from the system_configuration files. The AUDIO_SOURCE could be the
+output from the loopback, or any other audio source. 
+   AUDIO_SOURCE=alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! \
+      audio/x-raw,rate=96000,format=F32LE,channels=2
+
+
+
+
+
+
+
+
+Example Configuration Files:
+--------------------------------------------------------------
+
+The minimal_config.txt file included with GSASysCon is set to run GSASysCon in
+   the preamp mode, and uses only two parameters. The entire file is:
+============================= ( begin file ) ===================================
+
+#..............................................................................#
+#          GSASysCon: the Gsreamer Streaming Audio System Controller           #
+#                                                                              #
+#                       Minimal Configuration Settings                         #
+#..............................................................................#
+   OPERATING_MODE = preamp
+   SESSION_TITLE = GSASysCon:
+
+==============================  ( end file ) ===================================
+
+
+
+
+
+Dual Global Configuration Files for preamp-like operation:
+--------------------------------------------------------------
+In order to have multiple playback systems that can operate simultaneously, plus
+input selection and volume control, you must run two independent instances of 
+GSASysCon. Let's call these the "input" instance and the "output" instance. Each
+instance must have its own configuration file, and the systems filepath should
+be different for each since the input and output "systems" will be different and
+should appear separately in each instance. The audio is routed from an input 
+that is selected to be running via the input instance to the ALSA Loopback. The 
+output instance takes this audio as its input, and then routes it to one or more
+of the playback systems that are specified as output.
+
+The file system could be set up like this:
+|
+|___system_info                  #folder must always have this name
+        |
+        |                        #new subfolders for input and output.
+        |___inputs               #  name these as you wish...
+        |      |___CD_player        
+        |      |       |___system_configuration        
+        |      |___Computer_Audio        
+        |      |       |___system_configuration        
+        |      |___Radio_Tuner        
+        |               |___system_configuration        
+        |___outputs
+               |___kitchen        
+               |       |___system_configuration        
+               |___stube        
+               |       |___system_configuration        
+               |___wohnzimmer        
+                       |___system_configuration        
+   
+The two global configuration files are placed in the directory:
+   system_control                    #the top directory of GSASysCon
+        |___config                   #contains global config file(s)
+ 
+The two instances of GSASysCon are launched like this:
+~/system_control/scripts/GSASysConV3.12.sh --config_file=input_config.txt -r 20
+~/system_control/scripts/GSASysConV3.12.sh --config_file=output_config.txt -r 20
+Each must be launched from its own terminal window (e.g. open two instances of
+the bash termainal on the system). On my computer, this results in one terminal
+showing the intputs:
+
+AUDIO SOURCES:
+   #       STATUS        SYSTEM NAME
+----------------------------------------------------------
+   1        OFF          CD player
+   2   5hours,47mins     Computer Audio
+   3        OFF          Radio Tuner
+----------------------------------------------------------
+Enter a system number to toggle it ON/OFF, x to exit
+
+The other terminal shows the outputs:
+
+PLAYBACK ENDPOINTS:
+   #       STATUS        SYSTEM NAME
+----------------------------------------------------------
+   1   5hours,20mins     kitchen
+   2        OFF          stube
+   3   7hours,10mins     wohnzimmer
+----------------------------------------------------------
+Enter a system number to toggle it ON/OFF, x to exit
+
+
+
+The global configuration file input_config.txt used for the input instance is:
+============================= ( begin file ) ===================================
+#..............................................................................#
+#          GSASysCon: the Gsreamer Streaming Audio System Controller           #
+#                                                                              #
+#                    Configuration Settings for INPUTS                         #
+#..............................................................................#
+TIMEOUT_TIME=30           #number of seconds for 'run once' mode to time out
+SYS_NUM_WIDTH=5           #width of the system number field in the status output
+RUNTIME_WIDTH=16          #width of the runtime field in the status output
+LOG_MAX_LINES=500         #the number of lines to keep in the log file
+
+OPERATING_MODE = preamp   #use preamp mode of operation
+
+SESSION_TITLE = AUDIO SOURCES:
+
+SYSTEMS_FILEPATH = inputs
+
+LOG_FILENAME = input_logfile
+
+SHOW_SYSTEM_MESSAGES  #display messages below system status
+
+==============================  ( end file ) ===================================
+
+
+
+The global configuration file output_config.txt used for the output instance is:
+============================= ( begin file ) ===================================
+#..............................................................................#
+#          GSASysCon: the Gsreamer Streaming Audio System Controller           #
+#                                                                              #
+#                   Configuration Settings for OUTPUTS                         #
+#..............................................................................#
+TIMEOUT_TIME=30           #number of seconds for 'run once' mode to time out
+SYS_NUM_WIDTH=5           #width of the system number field in the status output
+RUNTIME_WIDTH=16          #width of the runtime field in the status output
+LOG_MAX_LINES=500         #the number of lines to keep in the log file
+
+OPERATING_MODE = streaming   #mode of operation is one of preamp or streaming
+
+SESSION_TITLE = PLAYBACK ENDPOINTS:
+
+SYSTEMS_FILEPATH = outputs
+
+LOG_FILENAME = output_logfile
+
+SHOW_SYSTEM_MESSAGES  #display messages below system status
+
+# the alsa device used as input when GSASysCon runs in streaming mode:
+AUDIO_SOURCE=alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! 
+   audio/x-raw,rate=96000,format=F32LE,channels=2
+
+==============================  ( end file ) ===================================
+
+In the output_config.txt file, the AUDIO_SOURCE specifies the device or card 
+that will be used for all output systems. As a result, the system configuration
+file for output systems omits the SYSTEM_INPUT. Also, because the same audio
+device or card must be capable of being connected to multiple GStreamer
+piplines as the source, the dsnoop plug of the ALSA device is used here instead
+of the hw: plug.
+
+
+

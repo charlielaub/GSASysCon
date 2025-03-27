@@ -1,0 +1,300 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                   Written by: Charlie Laub, 2025                            #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+
+                        Using the ALSAINFO app:
+
+
+ALSAINFO is a program to determine valid modes and channel assignments for an 
+alsa card under GSASysCon and GStreamer. 
+
+It is not always clear how to assign output channels for a DAC or audio 
+interface. This app allows the user to probe for valid modes that should be used
+in the GSASysCon system_configuration. While it is clear that for a stereo DAC
+there are two channels numbered 0 and 1, when the number of channels increases
+or there is a pro audio interface the GStreamer channel assignments are often
+not sequential and are sometimes not assigned to any channel number. ALSAINFO
+output is helpful in these cases. 
+
+SYNTAX:
+ALSAINFO takes three command line parameters:
+  alsa device to test, e.g. hw:1,0
+  requested sample rate, e.g. 48000, 96000, etc. Default = 44100
+  requested audio format, e.g. S16LE, S32LE, etc. Default = S16LE
+
+NOTES:
+The actual sample rate may be the closest rate that is supported by the 
+   soundcard and not the requested rate.
+GStreamer supported audio formats include: S8, U8, S16LE, S16BE, U16LE, U16BE, 
+   S24_32LE, S24_32BE, U24_32LE, U24_32BE, S32LE, S32BE, U32LE, U32BE, S24LE, 
+   S24BE, U24LE, U24BE, S20LE, S20BE, U20LE, U20BE, S18LE, S18BE, U18LE, U18BE, 
+   F32LE, F32BE, F64LE, F64BE
+
+
+Below I have provided some examples of the use of the ALSAINFO app, and show
+how it can return useful information to the user.
+
+   
+Example 1:
+The audio interface for this example is the HDMI adapter. We can see this
+card listed under alsa by typing:
+  aplay -l
+The relevant output is:
+card 0: Generic [HD-Audio Generic], device 3: HDMI 0 [HDMI 0]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+We will test this card at a rate of 128000 Hz and see what modes are available:
+   ./ALSAINFO.sh hw:0,3 128000
+
+The program output is:
+============================= (begin output) ==================================
+
+ALSAINFO.sh : written by Charlie Laub, 2016-2025, version 3.0
+
+testing ALSA device: hw:0,3
+Using a sample rate of 128000 Hz
+No audio format supplied - using the default audio format of S16LE
+
+ALSA info about hw:0,3 :
+card 0: Generic [HD-Audio Generic], device 3: HDMI 0 [HDMI 0]
+
+------------------------------------------------
+
+ACCESS:  MMAP_INTERLEAVED RW_INTERLEAVED
+FORMAT:  S16_LE S32_LE
+SUBFORMAT:  STD MSBITS_MAX
+SAMPLE_BITS: [16 32]
+FRAME_BITS: [32 256]
+CHANNELS: [2 8]
+RATE: [32000 192000]
+PERIOD_TIME: (20 16384000]
+PERIOD_SIZE: [4 524288]
+PERIOD_BYTES: [128 2097152]
+PERIODS: [2 32]
+BUFFER_TIME: (41 32768000]
+BUFFER_SIZE: [8 1048576]
+BUFFER_BYTES: [128 4194304]
+TICK_TIME: ALL
+
+------------------------------------------------
+
+
+Now testing hw:0,3 for comptibilty with channel counts ranging from 2 to 29:
+
+This device will accept an audio stream consisting of 2 channels of audio in 
+   the S16LE format
+The bitmask for this mode is: 0x0000000000000003
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+
+This device will accept an audio stream consisting of 4 channels of audio in 
+   the S16LE format
+The bitmask for this mode is: 0x0000000000000033
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+
+This device will accept an audio stream consisting of 6 channels of audio in 
+   the S16LE format
+The bitmask for this mode is: 0x000000000000003f
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 2 is used in this mode. Its channel mask is: 0x4
+   channel 3 is used in this mode. Its channel mask is: 0x8
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+
+This device will accept an audio stream consisting of 8 channels of audio in 
+   the S16LE format
+The bitmask for this mode is: 0x0000000000000c3f
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 2 is used in this mode. Its channel mask is: 0x4
+   channel 3 is used in this mode. Its channel mask is: 0x8
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+   channel 10 is used in this mode. Its channel mask is: 0x400
+   channel 11 is used in this mode. Its channel mask is: 0x800
+
+============================= (end output ) ====================================
+
+The first part of the output checks to see what ALSA knows about the card. The
+output shows that audio in S16_LE S32_LE ALSA formats (note GStreamer does not
+use the underscore, and calls these S16LE and S32LE) can be accepted, and that 
+valid channel counts are between 2 and 8 channels. It is not clear what other 
+channel counts are permissible and how these channels are numbered.
+
+In the next section, GStreamer is used to probe output modes as the number of
+channels is incremented. Only when a mode is successful, is output generated. 
+There are four different reported modes. We can see that channel counts of 
+2, 4, 6, and 8 are acceptable. The channel numbers that are used in each mode 
+are reported as well. This is critically important information because they are 
+often non-sequential. For example, the last mode for 8 channels uses channel 
+numbers 0,1,2,3,4,5,10 and 11. If you attempt to send 8 sequentially numbered 
+channels (e.g. 0,1,2,3,4,5,6,7) to the card the output will fail, and it can be 
+nearly impossible to guess the valid channels for a given card. ALSA does not 
+provide this information. 
+
+In rare cases a card will support a different number of, or fewer, channels when 
+the sample rate is higher. It is always a good idea to probe the actual rate you
+wish to use by supplying it as a parameter to ALSAINFO.
+
+
+
+
+Example 2:
+In this example, we will examine a pro-audio interface, the Focusrite Clarett
+2Pre. ALSAINFO is invoked like this:
+./ALSAINFO.sh hw:CARD=USB,DEV=0 96000 S32LE
+
+The output from the app is:
+============================= (begin output) ==================================
+
+ALSAINFO.sh : written by Charlie Laub, 2016-2025, version 3.0
+
+testing ALSA device: hw:CARD=USB,DEV=0
+Using a sample rate of 96000 Hz
+probing the device with an audio format of S32LE
+
+ALSA info about hw:CARD=USB,DEV=0 :
+hw:CARD=USB,DEV=0:     Clarett 2Pre USB, USB Audio
+------------------------------------------------
+
+ACCESS:  MMAP_INTERLEAVED RW_INTERLEAVED
+FORMAT:  S32_LE
+SUBFORMAT:  STD MSBITS_MAX
+SAMPLE_BITS: 32
+FRAME_BITS: 128
+CHANNELS: 4
+RATE: [44100 192000]
+PERIOD_TIME: [125 1000000]
+PERIOD_SIZE: [6 192000]
+PERIOD_BYTES: [96 3072000]
+PERIODS: [2 1024]
+BUFFER_TIME: (62 2000000]
+BUFFER_SIZE: [12 384000]
+BUFFER_BYTES: [192 6144000]
+TICK_TIME: ALL
+
+------------------------------------------------
+
+
+Now testing hw:CARD=USB,DEV=0 for comptibilty with channel counts ranging from 
+   2 to 29:
+
+This device will accept an audio stream consisting of 4 channels of audio in 
+   the S32LE format
+The bitmask for this mode is: 0x0000000000000033
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+
+============================= (end output ) ====================================
+
+There is only one mode supported. This requires 4 channels of audio, and the
+channel numbering that must be used is 0,1,4,5 and the only supported audio
+format is S32LE.
+
+
+
+
+
+Example 3:
+In this example we examine the modes for the Behringer UMC1820 audio interface.
+The UMC1820 has been configured (on the interface itself) for 12 outputs - there
+are 10 analog outputs via TRS jacks on the rear, and 2 channels of S/PDIF
+digital audio.
+
+The output from ALSAINFO is:
+============================= (begin output) ==================================
+
+ALSAINFO.sh : written by Charlie Laub, 2016-2025, version 3.0
+
+testing ALSA device: hw:3,0
+Using a sample rate of 96000 Hz
+No audio format supplied - using the default audio format of S16LE
+
+ALSA info about hw:3,0 :
+card 3: UMC1820 [UMC1820], device 0: USB Audio [USB Audio]
+
+------------------------------------------------
+
+ACCESS:  MMAP_INTERLEAVED RW_INTERLEAVED
+FORMAT:  S24_3LE
+SUBFORMAT:  STD MSBITS_MAX
+SAMPLE_BITS: 24
+FRAME_BITS: 288
+CHANNELS: 12
+RATE: [44100 96000]
+PERIOD_TIME: [125 1000000]
+PERIOD_SIZE: [6 96000]
+PERIOD_BYTES: [216 3456000]
+PERIODS: [2 1024]
+BUFFER_TIME: [125 2000000]
+BUFFER_SIZE: [12 192000]
+BUFFER_BYTES: [432 6912000]
+TICK_TIME: ALL
+
+------------------------------------------------
+
+
+Now testing hw:3,0 for comptibilty with channel counts ranging from 2 to 29:
+
+This device will accept an audio stream consisting of 12 channels of audio in 
+   the S24LE format
+WARNING: the audio format was changed from S16LE to: S24LE
+The bitmask for this mode is: 0x0000000000000000
+   This device does not use channel assignments.
+   All output channels should have their bitmask set to -3 (NONE)
+
+
+============================= (end output ) ====================================
+
+The output shows that only one audio mode is valid for the UMC1820.
+
+Note that initially the audio format was S16LE, however, ALSAINFO warns that
+the driver can only accept data in the S24LE format (ALSA's format S24_3LE).
+This same information could have been determined from ALSA itself, however, 
+ALSA does not tell you anything useful about what channel numbers are valid
+when sending audio to this card. This is where ALSAINFO can be really helpful. 
+
+The device driver under Linux does not assign channel numbers to any of the
+channels on this device. Instead of directing audio to an output via its
+channel number, it is by the order of the audio channels in the stream sent to 
+the interface via ALSA. In this case, the "channel" assignment is given the 
+value "-3" by GStreamer for all channels. So, the first ROUTE that you declare 
+will route some intput audio channel to physical output #1 on the rear of the 
+UMC1820, the second ROUTE will lead to physical output #2, and so on. 
+
+Also, the only mode that exists requires all 12 channels to be sent 
+as output to the UMC1820 whether you need to or not. Thus, you must declare 12 
+ROUTEs in the GSASysCon system_configuration file. Any unused channels can just 
+be a copy of an input channel, and could be muted if so desired. A similar 
+situation may arise with other pro audio interfaces. 
+
+The ROUTE statements in the system_configuration file could be written like 
+this:
+ROUTE=1,0,-3 #output channel 0 (physical jack #1) on the UMC1820
+...DSP filters for this route go here...   
+ROUTE=1,0,-3 #output channel 1 (physical jack #2) on the UMC1820
+...DSP filters for this route go here...
+ROUTE=1,0,-3 #output channel 2 (physical jack #3) on the UMC1820
+...DSP filters for this route go here...
+and so on until:
+ROUTE=1,0,-3 #output channel 11 (physical jack #12) on the UMC1820
+...DSP filters for this route go here...
+
+In this situation it is helpful to make notes in the system_configuration file
+to remind yourself which ROUTE is intended for which driver, speaker, etc. eg:
+   ROUTE=1,0,-3 #output channel 0 (physical jack #1) for the TWEETER
+and so on.
+
+

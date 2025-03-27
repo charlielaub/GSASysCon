@@ -1,0 +1,314 @@
+# Filter Definitions for DFE Crossover Filters
+# Written by Charlie Laub, March 2025 
+# Version 1.0 
+
+#This file contains filter definitions for several members of the Derived From 
+#   Elliptical (DFE) crossover filter family. For complete information on these
+#   crossovers, please see:
+#   https://audioxpress.com/files/attachment/2777 
+#   and
+#   C.Laub, AudioXpress pp 46-53, September 2024
+#
+#Each crossover is described using a multi-line variable. See the GSASysCon 
+#   Advanced Topics file in the docs directory for more information
+#   about multi-line variables. 
+
+# NOTE that the crossover frequency for each must be supplied as a parameter
+#  called XoverF when using the filter in the system configuration file.
+#  Example:
+#  ROUTE 0,0,0; 1,0,1
+#     4DFE_2.00_A48_P55-LP XoverF=1500
+
+# Crossover and parameters names are case sensitive.
+# The value for the crossover frequency XoverF has units of Hertz
+
+
+# CROSSOVER FILTER LIST ---------------------------------------
+#   4DFE_2.00_A48_P55 lowpass and highpass filters
+#   5DFE_1.52_A39_P70 lowpass and highpass filters
+#   5DFE_1.75_A45_P66 lowpass and highpass filters
+#   5DFE_2.00_A62_P2 lowpass and highpass filters
+#   6DFE_1.25_A44_P90 lowpass and highpass filters
+#   6DFE_1.50_A52_P0 lowpass and highpass filters
+#   6DFE_1.50_A58_P90 lowpass and highpass filters
+#   6DFE_1.75_A63_P28 lowpass and highpass filters
+#   7DFE_1.24_A45_P81 lowpass and highpass filters
+#   7DFE_1.35_A52_P86 lowpass and highpass filters
+#   7DFE_1.58_A63_P77 lowpass and highpass filters
+#   AP3_4DFE_1.41_A46_P83 lowpass and highpass filters
+#   AP3_4DFE_1.61_A58_P84 lowpass and highpass filters
+# END FILTER LIST ---------------------------------------------
+
+
+
+
+
+
+
+# Filter Name: 4DFE_2.00_A48_P55-LP
+# Parameter names: XoverF
+# Description: 48dB attenuation at 2*Fc, 55deg rel. phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 4DFE_2.00_A48_P55-LP
+    ladspa-acdf-so-acdf type=77 fp=0.9766*XoverF qp=1.773 fz=2.1498*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.73*XoverF qp=0.656 fz=4.5795*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 4DFE_2.00_A48_P55-HP
+# Parameter names: XoverF
+# Description: 48dB attenuation at 2*Fc, 55deg rel. phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 4DFE_2.00_A48_P55-HP
+    ladspa-acdf-so-acdf type=77 fp=1.024*XoverF qp=1.773 fz=0.4652*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.3698*XoverF qp=0.656 fz=0.2184*XoverF
+  END_MULTILINE_VARIABLE
+
+# Filter Name: 5DFE_1.52_A39_P70-LP
+# Parameter names: XoverF
+# Description: 39dB attenuation at 1.52*Fc, 70deg rel. phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_1.52_A39_P70-LP
+    ladspa-acdf-so-acdf type=1 fp=0.7709*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.134*XoverF qp=1.262 fz=1.5752*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9986*XoverF qp=1.501 fz=2.3586*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 5DFE_1.52_A39_P70-HP
+# Parameter names: XoverF
+# Description: 39dB attenuation at 1.52*Fc, 70deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_1.52_A39_P70-HP
+    ladspa-acdf-so-acdf type=2 fp=1.2973*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8819*XoverF qp=1.262 fz=0.6348*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0014*XoverF qp=1.501 fz=0.424*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 5DFE_1.75_A45_P66-LP
+# Parameter names: XoverF
+# Description: 45dB attenuation at 1.75*Fc, 66deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_1.75_A45_P66-LP
+    ladspa-acdf-so-acdf type=1 fp=0.7953*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.2293*XoverF qp=1.055 fz=1.8309*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.968*XoverF qp=1.371 fz=2.7413*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 5DFE_1.75_A45_P66-HP
+# Parameter names: XoverF
+# Description: 45dB attenuation at 1.75*Fc, 66deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_1.75_A45_P66-HP
+    ladspa-acdf-so-acdf type=2 fp=1.2573*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8135*XoverF qp=1.055 fz=0.5462*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.033*XoverF qp=1.371 fz=0.3648*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 5DFE_2.00_A62_P2-LP
+# Parameter names: XoverF
+# Description: 62dB attenuation at 2*Fc, 2deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_2.00_A62_P2-LP
+    ladspa-acdf-so-acdf type=1 fp=0.5934*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9675*XoverF qp=2.111 fz=2.0995*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8049*XoverF qp=0.917 fz=3.3301*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 5DFE_2.00_A62_P2-HP
+# Parameter names: XoverF
+# Description: 62dB attenuation at 2*Fc, 2deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 5DFE_2.00_A62_P2-HP
+    ladspa-acdf-so-acdf type=2 polarity=-1 fp=1.6851*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0336*XoverF qp=2.111 fz=0.4763*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.2424*XoverF qp=0.917 fz=0.3003*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.25_A44_P90-LP
+# Parameter names: XoverF
+# Description: 44dB attenuation at 1.25*Fc, 90deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.25_A44_P90-LP
+    ladspa-acdf-so-acdf type=77 fp=XoverF qp=5.931 fz=1.2831*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8911*XoverF qp=1.626 fz=1.6782*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.6846*XoverF qp=0.588 fz=4.1966*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.25_A44_P90-HP
+# Parameter names: XoverF
+# Description: 44dB attenuation at 1.25*Fc, 90deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.25_A44_P90-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=XoverF qp=5.931 fz=0.7794*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.1223*XoverF qp=1.626 fz=0.5959*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.4608*XoverF qp=0.588 fz=0.2383*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.50_A52_P0-LP
+# Parameter names: XoverF
+# Description: 52dB attenuation at 1.5*Fc, 0deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.50_A52_P0-LP
+    ladspa-acdf-so-acdf type=77 fp=1.0942*XoverF qp=1.624 fz=1.5641*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9333*XoverF qp=1.556 fz=2.0137*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.932*XoverF qp=0.516 fz=4.2678*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.50_A52_P0-HP
+# Parameter names: XoverF
+# Description: 52dB attenuation at 1.5*Fc, 0deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.50_A52_P0-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=0.914*XoverF qp=1.624 fz=0.6393*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0715*XoverF qp=1.556 fz=0.4966*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.073*XoverF qp=0.516 fz=0.2343*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.50_A58_P90-LP 
+# Parameter names: XoverF
+# Description: 58dB attenuation at 1.5*Fc, 90deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.50_A58_P90-LP
+    ladspa-acdf-so-acdf type=77 fp=XoverF qp=4.486 fz=1.5485*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.874*XoverF qp=1.315 fz=2.016*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.6695*XoverF qp=0.575 fz=4.9835*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.50_A58_P90-HP
+# Parameter names: XoverF
+# Description: 58dB attenuation at 1.5*Fc, 90deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.50_A58_P90-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=XoverF qp=4.486 fz=0.6458*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.1442*XoverF qp=1.315 fz=0.496*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.4937*XoverF qp=0.575 fz=0.2007*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.75_A63_P28-LP
+# Parameter names: XoverF
+# Description: 63dB attenuation at 1.75*Fc, 28deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.75_A63_P28-LP
+    ladspa-acdf-so-acdf type=77 fp=1.1799*XoverF qp=2.136 fz=1.8031*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8741*XoverF qp=1.618 fz=2.374*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.6663*XoverF qp=0.58 fz=6.6726*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 6DFE_1.75_A63_P28-HP
+# Parameter names: XoverF
+# Description: 63dB attenuation at 1.75*Fc, 28deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 6DFE_1.75_A63_P28-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=0.8475*XoverF qp=2.136 fz=0.5546*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.144*XoverF qp=1.618 fz=0.4212*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.5008*XoverF qp=0.58 fz=0.1499*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.24_A45_P81-LP
+# Parameter names: XoverF
+# Description: 45dB attenuation at 1.24*Fc, 81deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.24_A45_P81-LP
+    ladspa-acdf-so-acdf type=1 fp=0.836*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0925*XoverF qp=1.826 fz=1.2705*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9988*XoverF qp=4.197 fz=1.5015*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9173*XoverF qp=0.789 fz=2.5666*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.24_A45_P81-HP
+# Parameter names: XoverF
+# Description: 45dB attenuation at 1.24*Fc, 81deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.24_A45_P81-HP
+    ladspa-acdf-so-acdf type=2 polarity=-1 fp=1.1962*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9153*XoverF qp=1.826 fz=0.7871*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0012*XoverF qp=4.197 fz=0.666*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0902*XoverF qp=0.789 fz=0.3896*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.35_A52_P86-LP
+# Parameter names: XoverF
+# Description: 52dB attenuation at 1.35*Fc, 86deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.35_A52_P86-LP
+    ladspa-acdf-so-acdf type=1 fp=0.8443*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0491*XoverF qp=1.322 fz=1.3835*XoverF
+    ladspa-acdf-so-acdf type=77 fp=XoverF qp=4.018 fz=1.6664*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9925*XoverF qp=0.717 fz=2.8509*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.35_A52_P86-HP
+# Parameter names: XoverF
+# Description: 52dB attenuation at 1.35*Fc, 86deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.35_A52_P86-HP
+    ladspa-acdf-so-acdf type=2 polarity=-1 fp=1.1844*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9532*XoverF qp=1.322 fz=0.7228*XoverF
+    ladspa-acdf-so-acdf type=77 fp=XoverF qp=4.018 fz=0.6001*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0076*XoverF qp=0.717 fz=0.3508*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.58_A63_P77-LP 
+# Parameter names: XoverF
+# Description: 63dB attenuation at 1.58*Fc, 77deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.58_A63_P77-LP
+    ladspa-acdf-so-acdf type=1 fp=1.0927*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.1169*XoverF qp=1.662 fz=1.6269*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9884*XoverF qp=2.332 fz=1.9906*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8323*XoverF qp=0.623 fz=3.4249*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: 7DFE_1.58_A63_P77-HP
+# Parameter names: XoverF
+# Description: 63dB attenuation at 1.58*Fc, 77deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE 7DFE_1.58_A63_P77-HP
+    ladspa-acdf-so-acdf type=2 polarity=-1 fp=0.9151*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.8954*XoverF qp=1.662 fz=0.6147*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0118*XoverF qp=2.332 fz=0.5024*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.2015*XoverF qp=0.623 fz=0.292*XoverF
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: AP3_4DFE_1.41_A46_P83-LP
+# Parameter names: XoverF
+# Description: 46dB attenuation at 1.41*Fc, 83deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE AP3_4DFE_1.41_A46_P83-LP
+    ladspa-acdf-so-acdf type=77 fp=XoverF qp=3.28 fz=1.4516*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9888*XoverF qp=0.613 fz=2.1137*XoverF
+    ladspa-acdf-so-acdf type=1 fp=1.0158*XoverF
+    ladspa-acdf-so-acdf type=21 fp=1.0302*XoverF qp=1.125
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: AP3_4DFE_1.41_A46_P83-HP 
+# Parameter names: XoverF
+# Description: 46dB attenuation at 1.41*Fc, 83deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE AP3_4DFE_1.41_A46_P83-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=XoverF qp=3.28 fz=0.6889*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.0113*XoverF qp=0.613 fz=0.4731*XoverF
+    ladspa-acdf-so-acdf type=2 fp=0.9844*XoverF
+    ladspa-acdf-so-acdf type=22 fp=0.9707*XoverF qp=1.125
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: AP3_4DFE_1.61_A58_P84-LP
+# Parameter names: XoverF
+# Description: 58dB attenuation at 1.61*Fc, 84deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE AP3_4DFE_1.61_A58_P84-LP
+    ladspa-acdf-so-acdf type=77 fp=0.9993*XoverF qp=2.808 fz=1.663*XoverF
+    ladspa-acdf-so-acdf type=77 fp=0.9443*XoverF qp=0.642 fz=2.2176*XoverF
+    ladspa-acdf-so-acdf type=1 fp=0.8969*XoverF
+    ladspa-acdf-so-acdf type=21 fp=1.0885*XoverF qp=1.091
+  END_MULTILINE_VARIABLE
+
+
+# Filter Name: AP3_4DFE_1.61_A58_P84-HP 
+# Parameter names: XoverF
+# Description: 58dB attenuation at 1.61*Fc, 84deg phase angle at XoverF
+  DEFINE_MULTILINE_VARIABLE AP3_4DFE_1.61_A58_P84-HP
+    ladspa-acdf-so-acdf type=77 polarity=-1 fp=1.0007*XoverF qp=2.808 fz=0.6013*XoverF
+    ladspa-acdf-so-acdf type=77 fp=1.059*XoverF qp=0.642 fz=0.4509*XoverF
+    ladspa-acdf-so-acdf type=2 fp=1.1149*XoverF
+    ladspa-acdf-so-acdf type=22 fp=0.9187*XoverF qp=1.091
+  END_MULTILINE_VARIABLE
+
+

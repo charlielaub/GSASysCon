@@ -1,0 +1,20 @@
+#..............................................................................#
+#          GSASysCon: the Gsreamer Streaming Audio System Controller           #
+#                                                                              #
+#                    Configuration Settings for INPUTS                         #
+#..............................................................................#
+TIMEOUT_TIME=30           #number of seconds for 'run once' mode to time out
+SYS_NUM_WIDTH=5           #width of the system number field in the status output
+RUNTIME_WIDTH=16          #width of the runtime field in the status output
+LOG_MAX_LINES=500         #the number of lines to keep in the log file
+
+OPERATING_MODE = preamp   #use preamp mode of operation
+
+SESSION_TITLE = AUDIO SOURCES:
+
+SYSTEMS_FILEPATH = inputs
+
+LOG_FILENAME = input_logfile
+
+SHOW_SYSTEM_MESSAGES  #display messages below system status
+

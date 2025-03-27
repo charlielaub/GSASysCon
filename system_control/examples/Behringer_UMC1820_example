@@ -1,0 +1,74 @@
+# Behringer UMC1820 example system configuration file with software volume
+#   adjustment of one analog input pair. Input is taken from analog input jacks
+#   1 and 2 on the rear panel, and output is all 10 analog outputs plus the
+#   SPDIF output. The interface has been configured to have 12 output channels
+#   via the front panel (see UMC1820 manual for info).
+# Replace placeholder comments "...DSP statement" with actual ACDf filters or
+#   short-name DSP crossovers from the filter definition files.
+# Create a new folder in system_control/system_info and save this file in it 
+#   with your edits under the name "system_configuration". It should appear as
+#   a new sytem in the GSASysCon control interface
+
+
+
+#set the input/source for the Gstreamer pipeline to the UMC1820 with 
+#   10 channels of 96kHz 32bit audio. Note when opening the UMC1820 you must 
+#   read all 10 channels even if you only need a subset of them.
+SYSTEM_INPUT = alsasrc device='hw:CARD=UMC1820,DEV=0' ! audio/x-raw,rate=96000,format=S32LE,channels=10
+
+#enable GSASysCon volume control and configure it to use the control called
+#   'Mic',1. This simulatenously adjusts the level of all inputs in software, 
+#   independent of the front panel gain control knobs, which should remain at
+#   their lowest setting
+VOLUME_CONTROL = card:UMC1820 > 'Mic',1  > %volume
+VOLUME_CONTROL_STYLE = graphical
+VOLUME_CONTROL_TIMEOUT=15
+
+CLIENT=LOCAL_PLAYBACK
+SINK_FORMAT=S24LE
+
+#set input volume to a low level before launching CD input
+LOCAL_SCRIPT_BEFORE_LAUNCH = amixer -c UMC1820 sset 'Mic',1 62%
+
+
+#muted audio for non-used channels
+ROUTE=0,MUTED_INPUT
+volume volume=0
+
+#global "input" filters
+ROUTE=0,LEFT_INPUT; 1,RIGHT_INPUT
+...DSP statement
+...DSP statement
+etc.
+
+#subwoofer output assigned to analog outputs 1 and 2 to allow front panel volume control
+ROUTE=LEFT_INPUT,0,-3; RIGHT_INPUT,0,-3
+...DSP statement
+...DSP statement
+etc.
+
+#woofer output on analog output jacks 3 and 4
+ROUTE=LEFT_INPUT,0,-3; RIGHT_INPUT,0,-3
+...DSP statement
+...DSP statement
+etc.
+
+#midrange output on analog output jacks 5 and 6
+ROUTE=LEFT_INPUT,0,-3; RIGHT_INPUT,0,-3
+...DSP statement
+...DSP statement
+etc.
+
+#tweeter output on analog output jacks 7 and 8
+ROUTE=LEFT_INPUT,0,-3; RIGHT_INPUT,0,-3
+...DSP statement
+...DSP statement
+etc.
+
+#These outputs are unused, so just send them muted audio/silence
+#NOTE all 12 channels must be included in the output signal or the interface
+#   does not successfullly open
+ROUTE=MUTED_INPUT,0,-3 #muted audio to analog output 9
+ROUTE=MUTED_INPUT,0,-3 #muted audio to analog output 10
+ROUTE=MUTED_INPUT,0,-3 #muted audio to SPDIF (output 11)
+ROUTE=MUTED_INPUT,0,-3 #muted audio to SPDIF (output 12)

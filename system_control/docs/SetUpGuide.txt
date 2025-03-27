@@ -1,0 +1,243 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                 Written by: Charlie Laub, 2025                              #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+      
+                            GSASysCon Setup Guide
+
+CONTENTS:
+An Overview of the Help Files
+The GSASysCon File Structure
+The Location of User Systems with the File Structure
+
+Installation Pre-requisites
+
+GSASysCon Installation
+   Setup and First Test of GSASysCon
+   Installation the ACDf LADSPA plugin
+
+GSASysCon Dependencies and the Required Bash Version:
+
+
+
+                                 
+An Overview of the Help Files:
+------------------------------------------------------------------------------
+There are a number of help files in the docs subfolder:
+* help.txt - info about the command line options for GSASysCon. This file is
+   written to screen if GSASysCon is run with the --help option or when no
+   option or parameter is provided
+* GSASysCon Basic Topics.txt - info about the system_configuration file, DSP
+* GSASysCon Advanced Topics.txt - more in depth coverage of features, etc.
+* Installing the ACDf LADSPA plugin.txt - how to install the included ACDf 
+   LADSPA plugin used to perform DSP IIR filtering in GSASysCon
+* ACDf_usage_notes.txt - usage info and help for the ACDf filters
+* About the global configuration file.txt - the global configuration file
+   controls how the GSASysCon app behaves and is located in the config dir
+* Using the ALSAINFO app.txt - ALSAINFO is a helper program to determine valid
+   audio formats and channel assignments for an alsa card under GStreamer
+After following the setup steps below, it is recommended that you read through
+these help files to better understand the capabilities and configuration of
+GSASysCon.     
+
+
+
+
+The GSASysCon File Structure
+------------------------------------------------------------------------------
+The GStreamer Streaming Audio System Controller uses the following directory 
+structure to store and organize information. When you install GSASysCon you 
+install this entire directory structure. 
+
+You may rename the top directory from system_control to any name that you would
+like. The remaining directory names on the left, below (config to system_info), 
+should remain unchanged. 
+
+DIRECTORY                        USAGE
+system_control                    the top directory of GSASysCon
+|___config                        contains global config file(s)
+|___docs                          help files and other docs
+|___Examples                      example systems
+|___filter_defs                   where filter definition files are located
+|___LADSPA                        ladspa plugins, e.g. ACDf
+|___license                       usage and license info
+|___log                           log file
+|___scripts                       GSASysCon and ALSAINFO shell scripts 
+|___system_info                   one folder per system
+        |
+        |                         some example system folders:
+        |___living_room_speaker               name the folder as you wish...
+        |       |___system_configuration      but always use this filename!        
+        |___bonus_room                        name the folder as you wish...
+        |       |___system_configuration      but always use this filename!        
+        |___back_patio                        name the folder as you wish...
+                |___system_configuration      but always use this filename!        
+
+
+
+The Location of User Systems with the File Structure
+------------------------------------------------------------------------------
+The user creates new directories within the system_info directory that are
+called system folders. These must consist of the system name with spaces 
+replaced by the underscore character. Example system folders that follow this 
+convention are shown above. The folder name, with underscores replaced by 
+spaces, will be shown in the GSASysCon control interface. 
+
+In each system subdirectory, a file named "system_configuration" contains all 
+of the information about the system, e.g. input, output, filters, etc. 
+
+
+
+
+Installation Pre-requisites
+------------------------------------------------------------------------------
+Before performing the setup we will make sure that the necessary GStreamer 
+components have been installed. When GStreamer is not installed or is only 
+partially installed, GSASysCon can run but cannot launch any systems. 
+
+First, type in a bash terminal window:
+  gst-launch-1.0 --version
+
+This command should return output that lists the version of GStreamer that is
+installed on the machine. It is recommended to use version 1.20.x or higher. If
+the command instead suggests that you install GStreamer, and/or you want to make
+sure that you have all of the GStreamer, you may run the following commands (on 
+Debian based systems such as Ubuntu and Raspberry OS):
+  sudo apt update
+  sudo apt -y install \ 
+    GStreamer1.0-plugins-base \ 
+    GStreamer1.0-plugins-good \
+    GStreamer1.0-plugins-bad \
+    GStreamer1.0-plugins-ugly \
+    GStreamer1.0-libav \
+    GStreamer1.0-tools \
+    GStreamer1.0-alsa \ 
+    GStreamer1.0-pulseaudio
+
+NOTE: in the above lines, the backslash character "\" is a line-continuation
+character. The first line with "update" is run first, and then all the 
+remaining lines are run at once by copying them from this document, pasting 
+them into the terminal window at the command prompt, and pressing the enter key.
+If any packages are already installed they will just be skipped but any missing
+packages will then be installed on the system. 
+
+NOTE for OSes based on Fedora, see the instructions at:
+https://GStreamer.freedesktop.org/documentation/installing/on-linux.html
+
+
+
+
+Setup and First Test of GSASysCon:
+------------------------------------------------------------------------------
+Begin by opening a bash terminal window.
+
+The first step is to enable execution of the GSASysCon shell script. Navigate 
+to the 'system_control/scripts' subdirectory. Identify the GSASysCon shell 
+script file having the most recent version (if there is more than one version 
+present). This will have a filename like GSASysConV3.12.sh, where the last part
+"3.12" is the version number. Run the command:
+   ls -l
+The first part of each line in the output indicates the read (r), write (w), 
+and execute (x) flag for each file. The field should contain one or more "x" 
+characters to indicate that the file(s)are executable. If not, enable execution
+by typing:
+   chmod +x ALSAINFO.sh
+and
+   chmod +x GSASysConV3.12.sh
+substituting the correct version number for 3.12 above, if different.
+
+Next, run the GSASysCon test system:
+In the system_info folder there is a directory called "first_test" containing a 
+system_configuration file. This file uses a "fake" GStreamer source and sink
+that are not connected to any audio device. Run the system using the following
+steps:
+A. Enter the system_control/scripts directory
+
+B. Run the GSASysCon script by typing: 
+   ./GSASysConV3.12.sh --config_file=minimal_config.txt -r 10
+If version 3.12 is not present, run the current/latest version of GSASysCon. 
+
+C. You should see the following screen:
+    GSASysCon:
+       #       STATUS        SYSTEM NAME
+    ----------------------------------------------------------
+       1        OFF          first test
+    ----------------------------------------------------------
+Enter a system number to toggle it ON/OFF, x to exit   
+
+Press "1" and then the ENTER key. The STATUS field should change and the screen
+will now look like this:
+
+    GSASysCon:
+       #       STATUS        SYSTEM NAME
+    ----------------------------------------------------------
+       1        0sec         first test
+    ----------------------------------------------------------
+    Enter a system number to toggle it ON/OFF, x to exit
+
+The STATUS field will automatically update every 10 seconds to reflect how long 
+the system has been in the "ON" state. If the user presses ENTER without 
+providing a system number the display is immediately refreshed and shows the 
+elapsed time. You may try that now (press ENTER).
+
+Finally, again press "1" followed by the ENTER key. The status should change 
+back to "OFF". If this was successful, type "x" and press enter to exit  
+GSASysCon and return to the command line. 
+
+
+  
+
+
+Installation the ACDf LADSPA plugin:
+------------------------------------------------------------------------------
+The final installation step is to install the LADSPA ACDf plugin. Open the file
+"Installing the ACDf LADSPA plugin.txt" that is located in the docs directory 
+and follow the instructions.  
+
+If you are unfamiliar with ACDf or LADSPA you may read the file 
+"ACDf_usage_notes.txt" located in the docs folder.
+
+Once you complete the ACDf installation please read help file "GSASysCon basic 
+Topics.txt" to better understand how audio systems are described in the 
+system_configuration file. The examples provided there should help you create 
+your first system with GSASysCon. 
+
+
+
+
+GSASysCon Dependencies and the Required Bash Version:
+------------------------------------------------------------------------------
+In addition to GStreamer, GSASysCon requires bash version 4.2 or later. You can
+check the bash version available to you by typing:
+   echo $BASH_VERSION
+Bash 4.2 was released in 2011, and it is unlikely that you have an older 
+version.
+
+GSASysCon uses the following apps/functions/programs. These are typically 
+included with the operating system and do not require installation:
+amixer
+awk
+ss
+nohup
+ps
+wc
+cat
+echo
+tail
+mkdir
+copy
+diff
+readlink
+dirname
+basename
+find
+
+An SSH server such as openssh-server must be installed to use the remote 
+client feature. Installation is described in the GSASysCon Advanced Topics
+help document.
+

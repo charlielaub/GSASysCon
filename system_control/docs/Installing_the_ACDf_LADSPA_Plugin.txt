@@ -1,0 +1,46 @@
+Installing the ACDf LADSPA plugin:
+
+
+The ACDf filter plugin is installed like any other LADSPA plugin. The LADSPA
+SDK must be installed first. Complete instructions can be found below.
+
+
+Before installing the plugin you must install the ladspa sdk and the Gstreamer 
+LADSPA host plugin, e.g:
+   sudo apt update
+   sudo apt -y install ladspa-sdk gstreamer1.0-plugins-bad
+If either of these have already been installed apt will inform you about it.
+
+Next, add the following path to the end of your .profile file in your home 
+directory so that the OS knows where to find LADSPA object files:
+   export LADSPA_PATH=/usr/local/lib/ladspa:/usr/lib/ladspa
+Open the .profile file with an editor, add the line at the end, and then save 
+the file and exit the editor. For this change to take effect you must logout 
+and then log back in to your account (or reboot).
+
+Now that LADSPA is installed on the system we are now ready to install ACDf. 
+In the directory:
+   system_control/LADSPA
+you will find subdirectories for the ACDf plugin and one or more optional
+LADSPA plugins.  
+
+To install ACDf, first enter the ACDf directory. You should see files such as:
+ACDf.cpp, README, makefile, etc. In a bash shell, type:
+   make
+followed by:
+   sudo make install
+
+If either of these commands produces an error you may be missing some tools that 
+the OS needs to compile and build the code. These can be installed with the 
+command:
+   sudo apt install build-essential
+Then try make and sudo make install again.
+
+To check for success and to list all installed LADSPA plugins, type
+   listplugins
+or
+   gst-inspect-1.0 ladspa
+ACDf should be found within the output of these commands.
+
+You are welcome to install any other LADSPA plugins at this time. 
+

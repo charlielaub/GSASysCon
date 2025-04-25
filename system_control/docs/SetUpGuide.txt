@@ -15,13 +15,13 @@ An Overview of the Help Files
 The GSASysCon File Structure
 The Location of User Systems with the File Structure
 
-Installation Pre-requisites
-
 GSASysCon Installation
-   Setup and First Test of GSASysCon
-   Installation the ACDf LADSPA plugin
+   Enabling the Script Files
+   Automated Installation
+   First Test of GSASysCon
+   Manual Installation
 
-GSASysCon Dependencies and the Required Bash Version:
+A List of GSASysCon Dependencies and the Required Bash Version:
 
 
 
@@ -54,7 +54,7 @@ The GStreamer Streaming Audio System Controller uses the following directory
 structure to store and organize information. When you install GSASysCon you 
 install this entire directory structure. 
 
-You may rename the top directory from system_control to any name that you would
+You may rename the from system_control directory to any name that you would
 like. The remaining directory names on the left, below (config to system_info), 
 should remain unchanged. 
 
@@ -80,6 +80,7 @@ system_control                    the top directory of GSASysCon
 
 
 
+
 The Location of User Systems with the File Structure
 ------------------------------------------------------------------------------
 The user creates new directories within the system_info directory that are
@@ -94,67 +95,44 @@ of the information about the system, e.g. input, output, filters, etc.
 
 
 
-Installation Pre-requisites
+Enabling the Script Files:
 ------------------------------------------------------------------------------
-Before performing the setup we will make sure that the necessary GStreamer 
-components have been installed. When GStreamer is not installed or is only 
-partially installed, GSASysCon can run but cannot launch any systems. 
+You must complete this step before performing either the Automated or Manual 
+installation. 
 
-First, type in a bash terminal window:
-  gst-launch-1.0 --version
-
-This command should return output that lists the version of GStreamer that is
-installed on the machine. It is recommended to use version 1.20.x or higher. If
-the command instead suggests that you install GStreamer, and/or you want to make
-sure that you have all of the GStreamer, you may run the following commands (on 
-Debian based systems such as Ubuntu and Raspberry OS):
-  sudo apt update
-  sudo apt -y install \ 
-    GStreamer1.0-plugins-base \ 
-    GStreamer1.0-plugins-good \
-    GStreamer1.0-plugins-bad \
-    GStreamer1.0-plugins-ugly \
-    GStreamer1.0-libav \
-    GStreamer1.0-tools \
-    GStreamer1.0-alsa \ 
-    GStreamer1.0-pulseaudio
-
-NOTE: in the above lines, the backslash character "\" is a line-continuation
-character. The first line with "update" is run first, and then all the 
-remaining lines are run at once by copying them from this document, pasting 
-them into the terminal window at the command prompt, and pressing the enter key.
-If any packages are already installed they will just be skipped but any missing
-packages will then be installed on the system. 
-
-NOTE for OSes based on Fedora, see the instructions at:
-https://GStreamer.freedesktop.org/documentation/installing/on-linux.html
+Begin by opening a bash terminal window. We will enable execution for several 
+GSASysCon related shell scripts. Navigate to the 'system_control/scripts' 
+subdirectory and then run the command:
+   chmod +x *.sh
 
 
 
 
-Setup and First Test of GSASysCon:
+Automated Installation:
 ------------------------------------------------------------------------------
-Begin by opening a bash terminal window.
+After enabling the script files as described above, if you wish to run the 
+automated installer remain in the system_control/scripts directory and type at
+the command prompt:
+   sudo ./Install.sh
+This will perform all of the actions that are outlined below under "Manual
+Installation" for you. 
 
-The first step is to enable execution of the GSASysCon shell script. Navigate 
-to the 'system_control/scripts' subdirectory. Identify the GSASysCon shell 
-script file having the most recent version (if there is more than one version 
-present). This will have a filename like GSASysConV3.12.sh, where the last part
-"3.12" is the version number. Run the command:
-   ls -l
-The first part of each line in the output indicates the read (r), write (w), 
-and execute (x) flag for each file. The field should contain one or more "x" 
-characters to indicate that the file(s)are executable. If not, enable execution
-by typing:
-   chmod +x ALSAINFO.sh
-and
-   chmod +x GSASysConV3.12.sh
-substituting the correct version number for 3.12 above, if different.
+At the end of the automated installation you will be asked if you would like to
+run the "First Test of GSASysCon". It is strongly recommended that you do so at
+that time.At the conclusion of the first test, the computer should be rebooted.
 
-Next, run the GSASysCon test system:
+
+
+
+First Test of GSASysCon:
+------------------------------------------------------------------------------
+The "first test" is intended to introduce you through using GSASysCon and test
+that it is working properly.
+
 In the system_info folder there is a directory called "first_test" containing a 
 system_configuration file. This file uses a "fake" GStreamer source and sink
-that are not connected to any audio device. Run the system using the following
+that are not connected to any audio device. These are used to check that the
+GSASysCon installation was sucessful. Run the system using the following
 steps:
 A. Enter the system_control/scripts directory
 
@@ -189,28 +167,73 @@ Finally, again press "1" followed by the ENTER key. The status should change
 back to "OFF". If this was successful, type "x" and press enter to exit  
 GSASysCon and return to the command line. 
 
+After the first test please read help file "GSASysCon Basic Topics.txt" to 
+better understand how audio systems are described in the system_configuration 
+file. The examples provided there should help you create your first system with
+GSASysCon. If you are unfamiliar with ACDf or LADSPA you may also want to read 
+the file "ACDf_usage_notes.txt" located in the docs folder. ACDf filters form 
+the basis of DSP within GSASysCon, however there is a simplified way to describe 
+crossover filters and EQ that does not involve ACDf directly. The topic is 
+introduced in the GSASysCon Basic Topics document. 
 
   
 
 
-Installation the ACDf LADSPA plugin:
+Manual Installation:
 ------------------------------------------------------------------------------
-The final installation step is to install the LADSPA ACDf plugin. Open the file
-"Installing the ACDf LADSPA plugin.txt" that is located in the docs directory 
-and follow the instructions.  
+For most users the automated installer is the best option, however, all of the
+steps for installation can also be performed manually and are listed below.
 
-If you are unfamiliar with ACDf or LADSPA you may read the file 
-"ACDf_usage_notes.txt" located in the docs folder.
+When GStreamer is not installed or is only partially installed, GSASysCon can 
+run but cannot launch any systems. Therefore the first step is to check that 
+the necessary GStreamer components have been installed and to install a few 
+additional packages.  
 
-Once you complete the ACDf installation please read help file "GSASysCon basic 
-Topics.txt" to better understand how audio systems are described in the 
-system_configuration file. The examples provided there should help you create 
-your first system with GSASysCon. 
+Begin by opening a bash terminal window.
+
+Run the following commands (on Debian based systems such as Ubuntu or 
+Raspberry OS):
+  sudo apt update
+  sudo apt -y install gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio ladspa-sdk build-essential
+
+If any packages are already installed they will just be skipped but any missing
+packages will be installed on the system. 
+
+Next, add the LADSPA path to the end of your .profile file in your home 
+directory so that the OS knows where to find LADSPA object files. This can be 
+done by running the following command:
+  echo 'export LADSPA_PATH=/usr/local/lib/ladspa:/usr/lib/ladspa' | tee -a ~/.profile
+
+NOTE because this will not take effect until you either logout and then log 
+back in to your account, or reboot, add the environmental variable to the 
+current shell by typing at the command prompt:
+  LADSPA_PATH=/usr/local/lib/ladspa
+
+Now that LADSPA is installed on the system we are now ready to install the ACDf 
+filters. In the directory:
+   system_control/LADSPA
+you will find subdirectories for the ACDf plugin and one or more optional
+LADSPA plugins. To install ACDf, first enter the ACDf directory. You should see
+files such as ACDf.cpp, README, makefile, etc. At the command prompt type:
+   make
+followed by:
+   sudo make install
+
+NOTE: You can generate a list of all installed LADSPA plugins using the command:
+   listplugins
+or
+   gst-inspect-1.0 ladspa
+ACDf should be found within the output of these commands.
+
+You should now perform the steps described in the section called "First Test of
+GSASysCon". At the conclusion of the first test, the computer should be
+rebooted.
 
 
 
 
-GSASysCon Dependencies and the Required Bash Version:
+
+A List of GSASysCon Dependencies and the Required Bash Version:
 ------------------------------------------------------------------------------
 In addition to GStreamer, GSASysCon requires bash version 4.2 or later. You can
 check the bash version available to you by typing:

@@ -36,13 +36,19 @@ Volume Control via GSASysCon
 HOW TO USE GSASysCon WITH REMOTE CLIENTS:
    Overview
    Preparing the SERVER and CLIENT
-   Automating SSH for GSASysCon
+      Enable SSH on Each Client
+      Install GStreamer On Each Client
+      Obtain IP addresses
+      Transfer The Server's RSA Key To Each Client
    The System_configuration File for a Remote Client
    System Configuration for Multiple Remote Clients 
    Improving the Synchronicity of Multiple Remote Clients
    Triggering Other software while launching/terminating a GSASysCon
       Remote System
-
+The Sections of the System Configuration File
+   Section #1 - System and System-Wide Parameters and Declarations
+   Section #2 - Client Related Parameters and Declarations
+   Declaring Multiple Clients and Multiple Sinks Within A System
 
 
 
@@ -150,12 +156,25 @@ directory and farther to where ever the file is located, e.g
 If the file is not found, GSASysCon aborts the system launch and places a 
 message about it in the log file.
 
-File insertion is used along with multi-line variables in the filter definition
-files. These are described later in this document. 
-
 NOTE that file insertion can be used recursively, that is if the file being 
 inserted contains another INSERT_FROM_FILE directive, it will also perform 
 insertion.
+
+Example Uses of File Insertion:
+File insertion is used along with multi-line variables in the filter definition
+files. These are described later in this document.
+
+Another use of File Insertion is to duplicate a part of a configuration file
+between several configuration files. An example of this usage is when GSASysCon
+is operating in preamp mode and has several inputs that can be chosen to play 
+back through a single output (e.g. a local loudspeaker system). In this case, 
+there will be a separate system configuration file for each input, e.g. Tuner, 
+CD player, etc. Each has a different system input but the rest of the system 
+configuration, the part that describes the loudspeaker EQ and crossover and the 
+client sink, will be exactly the same. Instead of duplicating these lines within 
+each system configuration file, they can be placed into a separate file and 
+then inserted into each system configuration file using the insert from file 
+directive.
 
 
 Co-Listing Route Declarations that share the same processing
@@ -577,7 +596,7 @@ audio is produced from the DAC on the client. This is illustrated below:
           SERVER:                                                     
          GSASysCon ---------( commands over SSH )---------> CLIENT:
               :                                                :
-audio ==>> GStreamer ========= ( RTP via LAN ) =========>  GStreamer => DAC
+audio ===> GStreamer ========= ( RTP via LAN ) =========>  GStreamer => DAC
 
 When the system is terminated by the user on the SERVER, GSASysCon again uses
 SSH to log into the CLIENT, where it kills the GStreamer process. At the same
@@ -601,60 +620,50 @@ Preparing the SERVER and CLIENT:
 We will now describe the additional steps that are necessary for remote client 
 playback. This includes installing SSH software on the SERVER and setting up 
 an RSA key to allow for automated and password-less login by GSASysCon. The
-software and configuration requirements are:
+additional software and configuration requirements are:
   SERVER:
-    install GSASysCon
-    install GStreamer
     install OpenSSH or other SSH server
     identify the IP address of the server computer
-    generate RSA key
+    generate an RSA key
   CLIENT:
     install GStreamer
     install ACDf
     identify the IP address of the client computer
-    install RSA key
+    transfer the RSA key from Server to Client
 NOTES: 
-GSASysCon is NOT installed on the CLIENT!
-When using Raspberry OS, you may need to enable SSH on the CLIENT with the
-command: "sudo raspi-config nonint do_ssh 1" or use the raspi-config utility.
+GSASysCon should NOT be installed on the CLIENT!
 
+Enable SSH on Each Client:
+When using Raspberry OS, SSH is emabled on the CLIENT with the command: 
+   sudo raspi-config nonint do_ssh 1
+or use the raspi-config utility and under Interfaces enable SSH.
+
+If the client is running a Debian based OS such as Ubuntu, use apt to install 
+the openssh-server package:
+   sudo apt update; sudo apt -y install openssh-server 
+
+Install GStreamer On Each Client:
 If you have not yet confirmed the installation of GStreamer on the CLIENT, 
 please do so now. You may use the same procedure that is outlined in the 
 SetupGuide document to confirm and/or install the necessary GStreamer 
 components. If you wish to use DSP processing, the ACDf LADSPA plugin must be
 installed on the client. You may either copy the ADCf directory from 
-system_control/LDSPA over to the client or, when logged into the client type:
+system_control/LADSPA over to the client or, when logged into the client type:
   wget http://audio.claub.net/software/LADSPA/ACDf_v4.1.tar
-Extract the tar file by typing
+Navigate into the ACDf directory and then wxtract the tar file by typing:
   tar -xvf ACDf_v4.1.tar
-Then install ACDf by performing the make and sudo make install steps that are
-outlined in the SetupGuide document. Make sure to add the LADSPA path to the
-.profile file in the home directory on the CLIENT.
+In either case, install ACDf by performing the make and sudo make install steps
+that are outlined in the SetupGuide document. Make sure to add the LADSPA path 
+to the .profile file in the home directory on the CLIENT. This can be done by
+running the following command:
+  echo 'export LADSPA_PATH=/usr/local/lib/ladspa:/usr/lib/ladspa' | tee -a ~/.profile
 
-Install OpenSSH or other SSH Server:
-On the SERVER computer, install the software OpenSSH. On Debian based systems:
-  sudo apt update
-  sudo apt install -y openssh-server
-This program is not installed in e.g. Ubuntu with the default OS install. SSH
-(Secure Shell) is a network protocol that provides secure remote access between
-computer systems. 
-
-
-Automating SSH for GSASysCon:
---------------------------------------------------------------
-In order to launch the GStreamer "receive" pipeline on each client (so that it
-will receive and play the audio stream), the code must be able to automatically
-SSH into a user account on the client and this typically requires a password.
-To make it possible for GSASysCon to perform an SSH login without prompting the
-user for a password each time, we will set up a secure key and transfer it from
-the SERVER to the CLIENT. The key permits password-less logins by the SERVER
-on the CLIENT.
-
-Before proceeding, the IP address of both the server and client are needed. The
-graphical user interface (GUI) for some operating system can show you the IP
-address for the computer based on how it is connecting to the LAN. If you do not
-have a GUI installed or wish to identify the IP address from the command line, 
-use the ip command. Type:
+Obtain IP addresses:
+To permit remote playback, the IP address of both the server and client are 
+needed. The graphical user interface (GUI) for some operating system can show 
+you the IP address for the computer based on how it is connecting to the LAN. 
+If you do not have a GUI installed or wish to identify the IP address from the 
+command line, use the ip command. Type:
   ip a | grep 'inet '
 This will produce at least two lines, possibly more. For example:
   inet 127.0.0.1/8 scope host lo
@@ -676,8 +685,14 @@ client. You will need to choose how you wish to have GSASysCon connect to the
 client, e.g. to which adapter you want to connect (hardcable or wifi) if both 
 are available. 
 
-Now that you know the IP addresses, the next step is to create an RSA key on the
-server and transfer it to the client using the steps below. 
+Transfer The Server's RSA Key To Each Client:
+In order to launch the GStreamer "receive" pipeline on each client (so that it
+will receive and play the audio stream), the code must be able to automatically
+SSH into a user account on the client and this typically requires a password.
+To make it possible for GSASysCon to perform an SSH login without prompting the
+user for a password each time, we will set up a secure key and transfer it from
+the SERVER to the CLIENT. The key permits password-less logins by the SERVER
+on the CLIENT.
 
 NOTE that in the steps below, the IP address of the CLIENT is denoted as "B" 
 and the user account on the client as "b". Make sure to substitute the actual 
@@ -687,7 +702,6 @@ Example:
   user account name on client = charlie = b
 Then b@B is written as:
   charlie@192.168.1.123
- 
 
 STEP 1. Generate a public RSA Key. Note that step 1 only needs to be done once. 
   For subsequent clients after the first, only perform steps 2,3 and 4 below. 
@@ -883,3 +897,128 @@ These refer to commands or script files that reside on the client, and that
 will also be executed on the client. In this case the filepath-name to the
 script is the filepath-name on the client and not on the server.
 
+
+
+
+________________________________________________________________________________
+
+               The Two Parts of the System Configuration File
+________________________________________________________________________________
+
+The system configuration file consists of two main parts. The first part is 
+where system-wide parameters are declared, and clients and routes are declared
+in the second part. This is further explained below.
+
+Part #1 - System and System-Wide Parameters and Declarations:
+--------------------------------------------------------------
+In the first section, system or system-wide parameters are declared. 
+System parametes include:
+    SYSTEM_INPUT
+    SERVER_RTBIN_PARAMETERS
+    VOLUME
+    GAIN_ADJUST_DB
+    SERVER_CHANNEL_MIXING
+    VOLUME_CONTROL
+    VOLUME_CONTROL_STYLE
+    VOLUME_CONTROL_TIMEOUT
+    DEFINE_VARIABLE
+    DEFINE_MULTILINE_VARIABLE
+    END_MULTILINE_VARIABLE
+System-wide parameters are client parameters that are declared in this section
+so that their values will be "global" to all system clients without having to
+declare them separately for each client.
+    CLIENT_RTBIN_PARAMETERS
+    STREAM_BITS
+    STREAM_RATE
+    SINK_FORMAT
+    PATH
+    RESAMPLER_QUALITY
+
+Once the first CLIENT keyword has been encountered, system parameters may no 
+longer be declared or modified.
+
+Part #2 - Client Related Parameters and Declarations:
+--------------------------------------------------------------
+In the second section, all client related parameters and routes are declared.
+Each client is declared using the following lines:
+   CLIENT = [LOCAL_CLIENT | IP address of client ]
+   [ACCESS = SSH access string ] #this is used for remote clients only
+
+The ACCESS parameter is only used for remote clients and can be omitted for
+local clients.
+
+The parameters and routes for each client are listed next. Any parameter values
+declared within the client will override the existing value from a "global" 
+declaration. These include:
+    CLIENT_RTBIN_PARAMETERS
+    STREAM_BITS
+    STREAM_RATE
+    SINK_FORMAT
+    PATH
+    RESAMPLER_QUALITY
+All of the remaining client parameters do not carry over from a previous client.
+Since there is no default or global value, these parameters MUST be re-declared
+for each new client:
+    CLIENT_SINK
+    ROUTE
+    DELAY
+    any GStreamer element or DSP filter
+    SYNCHRONIZED_PLAYBACK
+    OTHER_COMMAND_BEFORE_LAUNCH
+    OTHER_COMMAND_AFTER_LAUNCH
+    LOCAL_SCRIPT_BEFORE_LAUNCH
+    LOCAL_SCRIPT_AFTER_LAUNCH
+    OTHER_COMMAND_BEFORE_TERMINATE
+    OTHER_COMMAND_AFTER_TERMINATE
+    LOCAL_SCRIPT_BEFORE_TERMINATE
+    LOCAL_SCRIPT_AFTER_TERMINATE
+
+The declaration for a client ends either when the end-of-file is encountered or
+when the next CLIENT keyword is found.
+
+Another system client (such as a second remote client) would be declared by
+using the CLIENT keyword again:
+CLIENT = [LOCAL_CLIENT | IP address of client ]
+[ACCESS = SSH access string ] #this is used for remote clients only
+
+Declaring Multiple Clients and Multiple Sinks Within A System:
+--------------------------------------------------------------
+If a client uses more than one sink (for example multiple stereo DACs), these
+may be declared in any order within the client as long as they have been 
+declared before any route statement that references them. For an exmaple using
+three client sinks, they could be declared prior to any route statements:
+    CLIENT_SINK = first sink (sink #0) declared here
+    CLIENT_SINK = second sink (sink #1) declared here
+    CLIENT_SINK = and even a third sink (sink #2) is declared
+And then later used by routes as shown below:
+#These routes use the sink #0 (the middle number of the triple)
+    ROUTE=0,0,0; ROUTE=1,0,1
+      route elements go here...
+#These routes use the sink #1 (the middle number of the triple)
+    ROUTE=0,1,0; ROUTE=1,1,1
+      route elements go here...
+#These routes use the sink #2 (the middle number of the triple)
+    ROUTE=0,2,0; ROUTE=1,2,1
+      route elements go here...
+
+Another example of how to declare a client with three sinks is to declare each
+sink just before the routes that use it:
+#This time we declare the sink and then its routes immediately below that:
+    CLIENT_SINK = first sink declared here
+    Some sink specific parameter could go here...
+    ROUTE=0,0,0; ROUTE=1,0,1
+      route elements go here...
+#Same here for second sink...
+    CLIENT_SINK = second sink declared here
+    New sink specific parameters go here, if any...
+    ROUTE=0,1,0; ROUTE=1,1,1
+      route elements go here...
+#Same here for third sink...
+    CLIENT_SINK = and even a third sink is declared
+    ROUTE=0,2,0; ROUTE=1,2,1
+      route elements go here...
+      
+Input channels always refer to the channels coming from the server, no matter 
+which client or client sink is the current one. Keep in mind that a system can 
+be made up of a mix of local and remote clients. The only difference is in the 
+CLIENT and ACCESS statements for each client that makes up the system. 

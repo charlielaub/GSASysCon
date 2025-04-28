@@ -3,7 +3,7 @@
 
 As of 25APR2025 there is now a fully automated setup up script. The installation instructions can be found in the file system_control/docs/SetupGuide.txt. Follow the instructions in the Setup Guide and run a "first test" to confirm success.
 
-To get started, use the link at right to download the latest release!
+To get started, go to the RELEASES page using  the link at right and download the latest version!
 
 You are welcome to read through the docs in the folder system_control/docs to learn about all the capabilities of GSASysCon.
 

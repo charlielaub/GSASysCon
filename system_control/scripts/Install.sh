@@ -58,7 +58,7 @@ if  [[ "$user_input" == "y" || "$user_input" == "Y"  ]]; then
    echo "   then update every 10 seconds with a new elapsed run time. You may press ENTER to refresh/update the run"
    echo "   time. Enter 1 again to stop the system. The status should return to OFF. Finally, enter x to exit."
    echo; echo; read -p "When you are ready to begin, press the Enter key."
-   ./GSASysConV3.12.sh --config_file=minimal_config.txt -r 10
+   target=$(find . -name 'GSASysCon*'); eval $target --config_file=minimal_config.txt -r 10
 fi   
 
 clear; echo; echo "A reboot is required after the install process."

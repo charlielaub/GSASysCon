@@ -46,4 +46,4 @@ Gstreamer is a powerful multi-media platform that is continually undergoing deve
 
 ****
 
-The combination of Gstreamer and LADSPA is a robust and reliable DSP platform for DIY audio processing under Linux, or WSL2 under Windows. I've been using this to implement IIR DSP crossovers in tandem with my ACDf LADSPA plugin since 2016. ACDf implements all the first and second order filter types – it’s all you need for loudspeaker crossovers and PEQ duty.
+The combination of Gstreamer and LADSPA is a robust and reliable DSP platform for DIY audio processing under Linux, or WSL2 under Windows. I've been using this to implement IIR DSP crossovers in tandem with my ACDf LADSPA plugin since 2016. ACDf implements all the first and second order filter types – it’s all you need for loudspeaker crossovers and PEQ duty. Higher order filters are also possible as chains of 1st and second order filters, or via one of the many pre-defined filter types.

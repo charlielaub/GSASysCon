@@ -3130,7 +3130,7 @@ declare -a GST_SERVER_CODE
 declare -a SYNCHRONIZED_PLAYBACK  
 
 #define some large integer as a unique index where default client parameter values will be stored
-default_value_index = 999
+default_value_index=999
 
 VOLUME_CONTROL_STYLE="graphical"
 VOLUME_CONTROL_COLS="50"

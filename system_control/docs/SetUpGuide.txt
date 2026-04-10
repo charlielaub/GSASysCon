@@ -119,7 +119,7 @@ Installation" for you.
 
 At the end of the automated installation you will be asked if you would like to
 run the "First Test of GSASysCon". It is strongly recommended that you do so at
-that time.At the conclusion of the first test, the computer should be rebooted.
+that time. At the conclusion of the first test, the computer should be rebooted.
 
 
 
@@ -137,8 +137,8 @@ steps:
 A. Enter the system_control/scripts directory
 
 B. Run the GSASysCon script by typing: 
-   ./GSASysConV3.12.sh --config_file=minimal_config.txt -r 10
-If version 3.12 is not present, run the current/latest version of GSASysCon. 
+   ./GSASysConV3.16.sh --config_file=minimal_config.txt -r 10
+If version 3.16 is not present, run the current/latest version of GSASysCon. 
 
 C. You should see the following screen:
     GSASysCon:

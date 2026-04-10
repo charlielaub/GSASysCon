@@ -179,7 +179,19 @@ audio format will be used. The syntax is:
    SINK_FORMAT = (GStreamer audio format specifier)
 e.g.
    SINK_FORMAT = S16LE
+Sometimes the downstream audio process needs to be explicity given the sample
+rate of the stream. To do this, use the SINK_RATE specifier:
+   SINK_RATE = 96000
+This can sometimes fix problems with ALSA or Pipewire when these processes do
+not seem to use the correct rate for the stream.
 
+Using all of these together in the configuration file might look like this:
+   SINK_FORMAT = S32LE
+   SINK_RATE = 96000
+   CLIENT_SINK = pulsesink device=XXXXX
+Note that for Pulse Audio or pipewire-pulse the device string may be a long
+descriptive text. You can determine the available sinks using the command:
+   pactl list short sinks 
 
 
 
@@ -192,9 +204,29 @@ ________________________________________________________________________________
 A minimal configuration file:
 ------------------------------------------------------------------------------
 The system configuration file is always named "system_configuration" and is 
-placed into a directory that is created in system_control/system_info.
+placed into a directory that is created in system_control/system_info. Anytime
+you would like to create a new system, create a new directory and copy an 
+existing system_configuration file into it (or create one from scratch). For
+example, to add a system called "my_new_system" first make the dir:
+   mkdir system_control/system_info/my_new_system
+Let's copy the existing system control file from first test into it:
+   cd system_control/system_info
+   cp first_test/system_configuration my_new_system/system_configuration
+When you run GSASysCon you will see "my_new_system" listed.
 
-Now let's start by describing a minimal system that contains:
+The actual name of the directory containing the system_configuration file is
+not important to GSASysCon. It is just a way to separate and identify each
+system_configuration file. The system directories can be renamed at will, even 
+when GSASysCon is running (but not when that system is running!). If you decide
+to change the name of your system later, you can do that simply by renaming
+the directory that contains the system_configuration file. Also, the system
+directories can be copied or moved in and out of system_control/system_info at
+any time, for example to periodically keep a record of the system when changes
+are being made to it.
+
+Now let's start by describing a new system. You may create a new directory and
+copy the system_configuration file from first_test if you are just getting
+started with GSASysCon. This minimal system will contain:
 
 • an input, which in this case is the ALSA loopback device
 • a “client”, which in this case in the same as the machine the code is 
@@ -203,6 +235,10 @@ Now let's start by describing a minimal system that contains:
 • two routes that describe how the input audio channels will be routed to
    the output channels of the client audio sink.
 • The hash symbol “#” begins a comment.
+
+Clear/delete or comment out (put a "#" character at the beginning of the line)
+for any existing lines in the system configuration file. Then copy and paste
+the following lines into the system_configuration file:
 
 SYSTEM_INPUT = alsasrc device='hw:CARD=Loopback,DEV=1'
 CLIENT=LOCAL_PLAYBACK
@@ -213,7 +249,14 @@ ROUTE=1,0,1  #route input channel 1 to output device 0’s output ch 1
 
 Here each ROUTE connects an input channel to an output channel with the three 
 parameters indicating the input channel number, the output sink number, and 
-the output channel number. Channels and sinks are numbered starting from zero. 
+the output channel number. Channels and sinks are numbered starting from zero.
+
+For this system to work properly, you would need to have the ALSA loopback
+configured and have an application that sends audio there. Also, the ALSA device
+"USB" would need to exist on your system. You can change these now and going
+forward to match the devices that are present in your system. This will require
+some understanding of audio under Linux, which is outside the scope of this
+document. 
 
 
 Adding DSP using ACDf LADSPA Filters:

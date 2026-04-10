@@ -1,10 +1,10 @@
 #!/bin/bash
 #..............................................................................#
 #          GSASysCon: the Gsreamer Streaming Audio System Controller           #
-                              VERSION_NUMBER=3.15
+                              VERSION_NUMBER=3.16
 #..............................................................................#
 #                                                                              #
-#     Copyright (C) 2017 - 2025 by Charlie Laub                                #
+#     Copyright (C) 2017 - 2026 by Charlie Laub                                #
 #                                                                              #
 #     This program is free software: you can redistribute it and/or modify     #
 #     it under the terms of the GNU General Public License as published by     #
@@ -184,7 +184,7 @@ function valid_dotted_quad() {
 }
 
 
-function validate_client_IP {
+function check_client_info {
 #validate IPv4 address, and convert hostname to IP address when applicable
   local ADDRESS="$1"
   local resolved_IP
@@ -194,7 +194,7 @@ function validate_client_IP {
     if [[ $LOCAL_CLIENT_INDEX == "" ]]; then
       LOCAL_CLIENT_INDEX=$CLIENT_INDEX
       #set IP to -1 for this client
-      IP[CLIENT_INDEX]=-1
+      IP[$CLIENT_INDEX]=-1
     else
       message+=" ERROR: only one local playback client may been declared per system."
       commit_to_log "$message"
@@ -203,7 +203,11 @@ function validate_client_IP {
     return
   fi
   message=""
-  #validate the address
+  if [[ ${DO_IP_VALIDATION[$CLIENT_INDEX]} != 'true' ]]; then
+    IP[$CLIENT_INDEX]="$ADDRESS" #do not perform checks, just use address as is
+    return
+  fi
+  #validate the cliente IP address
   if [ $(valid_dotted_quad "$ADDRESS") -ne 0 ]; then
     #not an IP adress but it might be a hostname. Do a DNS lookup on it
     resolved_IP=""
@@ -227,13 +231,13 @@ function validate_client_IP {
   ping -c 1 -w 2 "$ADDRESS" &>/dev/null
   if [ $? -ne 0 ] ; then
     #address not reachable, so set IP to -2 to flag this condition
-    IP[CLIENT_INDEX]=-2
+    IP[$CLIENT_INDEX]=-2
     message+=" WARNING: the client at $ADDRESS could not be reached."
     commit_to_log "$message"
     return
   fi
   #address is valid and reachable
-  IP[CLIENT_INDEX]="$ADDRESS"
+  IP[$CLIENT_INDEX]="$ADDRESS"
 }
 
 
@@ -531,22 +535,25 @@ function get_system_or_stream_parameter {
       SERVER_RTPBIN_PARAMS=$field_contents   #string for all rtbin params
       ;;
     CLIENT_RTBIN_PARAMETERS)
-      CLIENT_RTPBIN_PARAMS[0]=$field_contents   #string for all rtbin params
+      CLIENT_RTPBIN_PARAMS[$default_value_index]=$field_contents   #string for all rtbin params
       ;;
     STREAM_BITS)
-      STREAM_BITS[0]=$field_contents
+      STREAM_BITS[$default_value_index]=$field_contents
       ;;
     STREAM_RATE)
-      STREAM_RATE[0]=$field_contents
+      STREAM_RATE[$default_value_index]=$field_contents
       ;;
     SINK_FORMAT)
-      SINK_FORMAT[0]=$field_contents
+      SINK_FORMAT[$default_value_index]=$field_contents
+      ;;
+    SINK_RATE)
+      SINK_RATE[$default_value_index]=$field_contents
       ;;
     PATH)
-      INFO_PATH[0]=$field_contents
+      INFO_PATH[$default_value_index]=$field_contents
       ;;
     CLIENT_INTERLEAVE_BUFFER)
-      INTERLEAVE_BUFFER[0]=$(( $field_contents*1000000 )) #multiply by 10^6 to convert millisec to nanosec
+      INTERLEAVE_BUFFER[$default_value_index]=$(( $field_contents*1000000 )) #multiply by 10^6 to convert millisec to nanosec
       ;;
     SERVER_INTERLEAVE_BUFFER)
       SERVER_BUFFER=$(( $field_contents*1000000 )) #multiply by 10^6 to convert millisec to nanosec
@@ -585,56 +592,59 @@ function get_client_parameter {
   separate_field_identifier_from_field_contents "=" "$1"
   case $field_identifier in
     ACCESS)
-      ACCESS[CLIENT_INDEX]=$field_contents
+      ACCESS[$CLIENT_INDEX]=$field_contents
       ;;
     CLIENT_SINK)
       #process client sink and append code to existing CLIENT_SINK_CODE, if any
       SINK_INDEX=$((SINK_INDEX+1)) #increment the SINK_INDEX 
-      CLIENT_SINK_CODE="$CLIENT_SINK_CODE   "'audiointerleave name=output'$SINK_INDEX' latency='"${INTERLEAVE_BUFFER[CLIENT_INDEX]}"' ! '
+      CLIENT_SINK_CODE="$CLIENT_SINK_CODE   "'audiointerleave name=output'$SINK_INDEX' latency='"${INTERLEAVE_BUFFER[$CLIENT_INDEX]}"' ! '
       #add the user-supplied sink info to the sink code
       CLIENT_SINK_CODE+="$field_contents"
       ;;
     CLIENT_RTBIN_PARAMETERS)
-      CLIENT_RTPBIN_PARAMS[CLIENT_INDEX]=$field_contents   #units of millisec
+      CLIENT_RTPBIN_PARAMS[$CLIENT_INDEX]=$field_contents   #units of millisec
       ;;
     CLIENT_INTERLEAVE_BUFFER)
-      INTERLEAVE_BUFFER[CLIENT_INDEX]=$(( $field_contents*1000000 )) #multiply by 10^6 to convert millisec to nanosec
+      INTERLEAVE_BUFFER[$CLIENT_INDEX]=$(( $field_contents*1000000 )) #multiply by 10^6 to convert millisec to nanosec
       ;;
     PATH)
-      INFO_PATH[CLIENT_INDEX]=$field_contents
+      INFO_PATH[$CLIENT_INDEX]=$field_contents
       ;;
     OTHER_COMMAND_BEFORE_LAUNCH)
-      OTHER_COMMAND_BEFORE_LAUNCH[CLIENT_INDEX]=$field_contents
+      OTHER_COMMAND_BEFORE_LAUNCH[$CLIENT_INDEX]=$field_contents
       ;;
     OTHER_COMMAND_AFTER_LAUNCH)
-      OTHER_COMMAND_AFTER_LAUNCH[CLIENT_INDEX]=$field_contents
+      OTHER_COMMAND_AFTER_LAUNCH[$CLIENT_INDEX]=$field_contents
       ;;
     LOCAL_SCRIPT_BEFORE_LAUNCH)
-      LOCAL_SCRIPT_BEFORE_LAUNCH[CLIENT_INDEX]=$field_contents
+      LOCAL_SCRIPT_BEFORE_LAUNCH[$CLIENT_INDEX]=$field_contents
       ;;
     LOCAL_SCRIPT_AFTER_LAUNCH)
-      LOCAL_SCRIPT_AFTER_LAUNCH[CLIENT_INDEX]=$field_contents
+      LOCAL_SCRIPT_AFTER_LAUNCH[$CLIENT_INDEX]=$field_contents
       ;;
     OTHER_COMMAND_BEFORE_TERMINATE)
-      OTHER_COMMAND_BEFORE_TERMINATE[CLIENT_INDEX]=$field_contents
+      OTHER_COMMAND_BEFORE_TERMINATE[$CLIENT_INDEX]=$field_contents
       ;;
     OTHER_COMMAND_AFTER_TERMINATE)
-      OTHER_COMMAND_AFTER_TERMINATE[CLIENT_INDEX]=$field_contents
+      OTHER_COMMAND_AFTER_TERMINATE[$CLIENT_INDEX]=$field_contents
       ;;
     LOCAL_SCRIPT_BEFORE_TERMINATE)
-      LOCAL_SCRIPT_BEFORE_TERMINATE[CLIENT_INDEX]=$field_contents
+      LOCAL_SCRIPT_BEFORE_TERMINATE[$CLIENT_INDEX]=$field_contents
       ;;
     LOCAL_SCRIPT_AFTER_TERMINATE)
-      LOCAL_SCRIPT_AFTER_TERMINATE[CLIENT_INDEX]=$field_contents
+      LOCAL_SCRIPT_AFTER_TERMINATE[$CLIENT_INDEX]=$field_contents
       ;;
     STREAM_BITS)
-      STREAM_BITS[CLIENT_INDEX]=$field_contents
+      STREAM_BITS[$CLIENT_INDEX]=$field_contents
       ;;
     STREAM_RATE)
-      STREAM_RATE[CLIENT_INDEX]=$field_contents
+      STREAM_RATE[$CLIENT_INDEX]=$field_contents
       ;;
     SINK_FORMAT)
-      SINK_FORMAT[CLIENT_INDEX]=$field_contents
+      SINK_FORMAT[$CLIENT_INDEX]=$field_contents
+      ;;
+    SINK_RATE)
+      SINK_RATE[$CLIENT_INDEX]=$field_contents
       ;;
     RESAMPLER_QUALITY)
       RESAMPLER_QUALITY=$field_contents
@@ -643,7 +653,7 @@ function get_client_parameter {
       #by default SYNCHRONIZED_PLAYBACK is disabled
       #the only acceptable values in the input file are true and false
       if [[ "$field_contents" == "true" ]]; then
-        SYNCHRONIZED_PLAYBACK[CLIENT_INDEX]="enable"
+        SYNCHRONIZED_PLAYBACK[$CLIENT_INDEX]="enable"
       fi
       ;;
   esac
@@ -689,21 +699,21 @@ function replace_placeholders_in_client_code {
 
    channel_position=-1 
    for i in ${!SOURCE_USAGE[@]}; do 
-      if [[ ${IP[CLIENT_INDEX]} == '-2' ]]; then continue; fi #the IP address is invalid
-      if [[ ${IP[CLIENT_INDEX]} == '-1' ]]; then
+      if [[ ${IP[$CLIENT_INDEX]} == '-2' ]]; then continue; fi #the IP address is invalid
+      if [[ ${IP[$CLIENT_INDEX]} == '-1' ]]; then
          channel_position=$i #for the local-playback client, use the server-side channel number directly
       else
          ((channel_position++)) #for streaming clients, use the order of appearance
       fi
       #build a list of server input channels used by this client, in increasing order
-      CLIENT_CHANNEL_USE[CLIENT_INDEX]+="$i "   
+      CLIENT_CHANNEL_USE[$CLIENT_INDEX]+="$i "
       counter="${SOURCE_USAGE[i]}"
       #increment the global count for server channel i by the counter.
       if [[ "$counter" == "" ]]; then 
          echo "this source not used!"  #this statement should never run 
          continue
       else
-        if [[ ${IP[CLIENT_INDEX]} == '-1' ]]; then
+        if [[ ${IP[$CLIENT_INDEX]} == '-1' ]]; then
           #for local clients, add the total channel use to the GLOBAL_SOURCE_USAGE
           GLOBAL_SOURCE_USAGE[i]=$((GLOBAL_SOURCE_USAGE[i]+counter))
         else
@@ -715,7 +725,7 @@ function replace_placeholders_in_client_code {
       fi
       #for local clients, placeholders will be replaced in the function 
       #   build_gstreamer_pipeline so skip remaining code
-      if [[ ${IP[CLIENT_INDEX]} == '-1' ]]; then
+      if [[ ${IP[$CLIENT_INDEX]} == '-1' ]]; then
        continue
       fi
       #code continues for streaming clients...  
@@ -748,14 +758,14 @@ function consolidate_existing_client_code {
    fi
    if [[ "$CLIENT_CODE" == "" ]]; then
       #if CLIENT_CODE is empty, no ROUTEs were declared and client is invalid. Return an error
-      message="No ROUTEs were declared for client ${IP[CLIENT_INDEX]}. Aborting system launch."
+      message="No ROUTEs were declared for client ${IP[$CLIENT_INDEX]}. Aborting system launch."
       error_flag=1
       return
    fi
    #replace placeholders
    replace_placeholders_in_client_code  
    #copy CLIENT_SINK_CODE and CLIENT_CODE into GST_CLIENT_CODE[] for this client
-   GST_CLIENT_CODE[CLIENT_INDEX]="$CLIENT_SINK_CODE   $CLIENT_CODE"
+   GST_CLIENT_CODE[$CLIENT_INDEX]="$CLIENT_SINK_CODE   $CLIENT_CODE"
    #reset CLIENT_CODE to empty string
    CLIENT_CODE=""
 } #end function consolidate_existing_client_code
@@ -779,7 +789,7 @@ function process_input_mixing_expression {
    if [ "$subexpression_count" -gt 1 ]; then
       #the channel_expression consists of one or more subexpressions
       #create a MIXER to process the mix expression and prepend this to the ROUTE_END_CODE specified by the user
-      ROUTE_CODE='   audiomixer name=mixer'"$MIXER_INDEX latency=${INTERLEAVE_BUFFER[CLIENT_INDEX]} ! "$ROUTE_END_CODE
+      ROUTE_CODE='   audiomixer name=mixer'"$MIXER_INDEX latency=${INTERLEAVE_BUFFER[$CLIENT_INDEX]} ! "$ROUTE_END_CODE
       #set the target for this route to the mixer that was just created
       target='mixer'"$MIXER_INDEX"'.'
       ((MIXER_INDEX++))
@@ -881,8 +891,13 @@ function pre_process_file {
   local separator_char=' '
   local num_tokens
   local pattern
-  all_MLV_names=$separator_char #initialize with a separator character
-  all_SLV_names=$separator_char #initialize with a separator character
+
+  if [[ -z "${multiline_variables[@]}" ]]; then
+    all_MLV_names=$separator_char  #initialize with a separator character
+  fi
+  if [[ -z "${singleline_variables[@]}" ]]; then
+    all_SLV_names=$separator_char  #initialize with a separator character
+  fi
 
   while IFS='' read -r ONE_LINE || [[ -n "$ONE_LINE" ]]; do
     #check for and remove any comments on the line (comments begin with a '#')
@@ -1164,6 +1179,7 @@ function perform_math_operations {
 
 
 function process_system_configuration {
+  local do_client_validation='true'
   #read line Source: http://stackoverflow.com/questions/10929453/read-a-file-line-by-line-assigning-the-value-to-a-variable
   while IFS='\n' read -r ONE_LINE || [[ -n "$ONE_LINE" ]]; do
     #check for and remove any comments on the line (comments begin with a '#')
@@ -1188,10 +1204,14 @@ function process_system_configuration {
       fi
     fi
     
-    if [[ $field_identifier == "CLIENT" ]]; then
+    if [[ $field_identifier == "CLIENT" ]] || [[ $field_identifier == "CLIENT_WITHOUT_VALIDATION" ]]; then
       #CLIENT begins a new client description
+      #CLIENT_WITH_VALIDATION requests that the client's IP address undergoes validation
       #first, save the ip address provided with the CLIENT keyword
       client_ip_address=$field_contents
+      if [[ $field_identifier == "CLIENT_WITHOUT_VALIDATION" ]]; then
+        do_client_validation='false'
+      fi
       #complete the code for the previous client before moving on to the new client
       if [ $CLIENT_INDEX -ge 0 ]; then 
          consolidate_existing_client_code
@@ -1201,23 +1221,25 @@ function process_system_configuration {
       #increment CLIENT_INDEX and initialize/reset some variables
       ((CLIENT_INDEX++))
       #initialize some parameters to their default values
-      SYNCHRONIZED_PLAYBACK[CLIENT_INDEX]=${SYNCHRONIZED_PLAYBACK[0]}
-      CLIENT_RTPBIN_PARAMS[CLIENT_INDEX]=${CLIENT_RTPBIN_PARAMS[0]}
-      STREAM_BITS[CLIENT_INDEX]=${STREAM_BITS[0]}
-      STREAM_RATE[CLIENT_INDEX]=${STREAM_RATE[0]}
-      SINK_FORMAT[CLIENT_INDEX]=${SINK_FORMAT[0]}
-      INFO_PATH[CLIENT_INDEX]=${INFO_PATH[0]}
-      INTERLEAVE_BUFFER[CLIENT_INDEX]=${INTERLEAVE_BUFFER[0]}
+      DO_IP_VALIDATION[$CLIENT_INDEX]=$do_client_validation
+      SYNCHRONIZED_PLAYBACK[$CLIENT_INDEX]=${SYNCHRONIZED_PLAYBACK[$default_value_index]}
+      CLIENT_RTPBIN_PARAMS[$CLIENT_INDEX]=${CLIENT_RTPBIN_PARAMS[$default_value_index]}
+      STREAM_BITS[$CLIENT_INDEX]=${STREAM_BITS[$default_value_index]}
+      STREAM_RATE[$CLIENT_INDEX]=${STREAM_RATE[$default_value_index]}
+      SINK_FORMAT[$CLIENT_INDEX]=${SINK_FORMAT[$default_value_index]}
+      SINK_RATE[$CLIENT_INDEX]=${SINK_RATE[$default_value_index]}
+      INFO_PATH[$CLIENT_INDEX]=${INFO_PATH[$default_value_index]}
+      INTERLEAVE_BUFFER[$CLIENT_INDEX]=${INTERLEAVE_BUFFER[$default_value_index]}
       ROUTE_CODE=""
       CLIENT_CODE=""
       CLIENT_SINK_CODE=""
       SINK_INDEX=-1 #reset the sink index to -1 to indicate no existing sinks
       unset SINK_CONNECTIONS #clear the SINK_CONNECTIONS counter
       unset SOURCE_USAGE #clear any existing info regarding the previous client's SOURCE_USAGE
-      #validate the ip address for this client:
-      #  for a valid and reachable client, put the validated value into IP[CLIENT_INDEX]
+      #check the ip address for this client:
+      #  for a valid and reachable client, put the validated value into IP[$CLIENT_INDEX]
       #  if the client is not reachable, the value -2 has been assigned to the IP address
-      validate_client_IP "$client_ip_address" 
+      check_client_info "$client_ip_address"
       #if the IP address was found to be invalid, abort any further processing 
       if [[ "$error_flag" != "" ]]; then 
         return  
@@ -1256,7 +1278,14 @@ function process_system_configuration {
           CH_MASK="(bitmask)0x$(printf "%x" $((2**$CH_MASK)))"
         fi
         #because the route ends at a sink, we need to convert the audio to the sink format and assign the sink channel
-        ROUTE_END_CODE="audioconvert ! 'audio/x-raw,format=${SINK_FORMAT[CLIENT_INDEX]},channel-mask=$CH_MASK' ! output$SINK_INDEX"'.sink_'"${SINK_CONNECTIONS[ROUTE_END]}"
+        ROUTE_END_CODE="audioconvert ! 'audio/x-raw"
+        if [[ ${SINK_FORMAT[$CLIENT_INDEX]} != '' ]]; then
+          ROUTE_END_CODE+=",format=${SINK_FORMAT[$CLIENT_INDEX]}"
+        fi
+        if [[ ${SINK_RATE[$CLIENT_INDEX]} != '' ]]; then
+          ROUTE_END_CODE+=",rate=${SINK_RATE[$CLIENT_INDEX]}"
+        fi
+        ROUTE_END_CODE+=",channel-mask=$CH_MASK' ! output$SINK_INDEX"'.sink_'"${SINK_CONNECTIONS[ROUTE_END]}"
         #increment the sink connections counter for the sink specified by ROUTE_END
         (( SINK_CONNECTIONS[ROUTE_END]++ ))
       else
@@ -1340,21 +1369,24 @@ function build_system_configuration_from_file {
   unset STREAM_BITS
   unset STREAM_RATE
   unset SINK_FORMAT
+  unset SINK_RATE
   unset INFO_PATH
   unset GLOBAL_SOURCE_USAGE
   unset SYNCHRONIZED_PLAYBACK
+  unset DO_IP_VALIDATION
   
-  #initialize some parameters to hard defaults
-  SYNCHRONIZED_PLAYBACK[0]="disable" #client playback sync via RTCP
-  INFO_PATH[0]="$CLIENT_INFO_PATH"
-  STREAM_RATE[0]=44100  #default to CD rate
-  STREAM_BITS[0]=16     #default to CD bit depth
-  INTERLEAVE_BUFFER[0]=100000000  #client-side audiointerleave and audiomixer latency (in nanosec)
+  #initialize some parameters to default values and store at default_value_index
+  SYNCHRONIZED_PLAYBACK[$default_value_index]="disable" #client playback sync via RTCP
+  INFO_PATH[$default_value_index]="$CLIENT_INFO_PATH"
+  STREAM_RATE[$default_value_index]=44100  #default to CD rate
+  STREAM_BITS[$default_value_index]=16     #default to CD bit depth
+  INTERLEAVE_BUFFER[$default_value_index]=100000000  #client-side audiointerleave and audiomixer latency (in nanosec)
   SERVER_BUFFER=100000000   #initialize the default server (audiointerlave) buffer to 30msec (30 000 000 nsec)
-  CLIENT_RTPBIN_PARAMS[0]=""   #clear the parameter string
+  CLIENT_RTPBIN_PARAMS[$default_value_index]=""   #clear the parameter string
   MIXER_INDEX=0   #reset the index used for distinguishing mixers
   RESAMPLER_QUALITY=10   #set the quality to maximum. Valid values are 0..10
-  SINK_FORMAT[0]='S16LE'   #the default client audio output format
+  SINK_FORMAT[$default_value_index]=''      #the default client audio output format
+  SINK_RATE[$default_value_index]=''        #the default client audio sample rate
   SERVER_RTPBIN_PARAMS=""
   if [[ $IO_MODE == "preamp" ]]; then
     SYSTEM_INPUT=""
@@ -1402,7 +1434,7 @@ function build_system_configuration_from_file {
   #  single-line variables, if any, performed
   for var_name in "${!singleline_variables[@]}"; do
     field_contents=${singleline_variables[$var_name]};       
-    pre_processed_sys_config=${pre_processed_sys_config/$var_name/$field_contents} #replace var name with value
+    pre_processed_sys_config=${pre_processed_sys_config//$var_name/$field_contents} #replace var name with value
   done
 
   #perform any math operations present in the system_configuration
@@ -1475,7 +1507,7 @@ function get_RTPC_port_numbers {
       (( trial_port_num++ ))
     done
     #copy the port into the RTPC_RX_PORT_NUM array
-    RTPC_RX_PORT_NUM[CLIENT_INDEX]=$trial_port_num
+    RTPC_RX_PORT_NUM[$CLIENT_INDEX]=$trial_port_num
     (( trial_port_num++ ))
   done
 }
@@ -1506,7 +1538,7 @@ function build_gstreamer_pipeline {
   NUM_STREAMING_CLIENTS=0
   for ((CLIENT_INDEX=0; CLIENT_INDEX < ${#IP[@]}; CLIENT_INDEX++))
   do
-    if [[ ${IP[CLIENT_INDEX]} == "-1" ]]; then
+    if [[ ${IP[$CLIENT_INDEX]} == "-1" ]]; then
       continue
     else
       (( NUM_STREAMING_CLIENTS++ ))
@@ -1575,44 +1607,44 @@ function build_gstreamer_pipeline {
   for ((CLIENT_INDEX=0; CLIENT_INDEX < ${#IP[@]}; CLIENT_INDEX++))
   do
     #skip the code in this loop if this is the local client or an invalid IP address
-    if [[ ${IP[CLIENT_INDEX]} == "-1" ]] || [[ ${IP[CLIENT_INDEX]} == "-2" ]]; then
+    if [[ ${IP[$CLIENT_INDEX]} == "-1" ]] || [[ ${IP[$CLIENT_INDEX]} == "-2" ]]; then
       continue
     fi
-    CLIENT_CONNECTIONS[CLIENT_INDEX]=0
+    CLIENT_CONNECTIONS[$CLIENT_INDEX]=0
     #create interleave and stream elements for streaming clients, then route audio to rtpbin
     #audiointerleave must be used with sufficient latency to prevent audio gliches
     GST_SERVER_CODE+=('   audiointerleave name=client'"$CLIENT_INDEX"'_stream latency='"$SERVER_BUFFER"' !')
     #RTP streams can accommodate 24bit or 16bit data only. Constrain BITS to these values 
-    BITS=${STREAM_BITS[CLIENT_INDEX]}
+    BITS=${STREAM_BITS[$CLIENT_INDEX]}
     if [ $BITS -ne 24 ]; then
       BITS=16
     fi
-    GST_SERVER_CODE+=("audioconvert ! audioresample quality=$RESAMPLER_QUALITY !")
-    GST_SERVER_CODE+=('audio/x-raw,rate='${STREAM_RATE[CLIENT_INDEX]}',format=S'$BITS'LE !')
+#    GST_SERVER_CODE+=("audioconvert ! audioresample quality=$RESAMPLER_QUALITY !")
+#    GST_SERVER_CODE+=('audio/x-raw,rate='${STREAM_RATE[$CLIENT_INDEX]}',format=S'$BITS'LE !')
     GST_SERVER_CODE+=('audioconvert ! rtpL'$BITS'pay !')
     GST_SERVER_CODE+=("server_rtpbin.send_rtp_sink_$CLIENT_INDEX")
 
     #set up RTP audio data TX for this client
-    GST_SERVER_CODE+=("server_rtpbin.send_rtp_src_$CLIENT_INDEX ! udpsink host=${IP[CLIENT_INDEX]} port=32768 ")
+    GST_SERVER_CODE+=("server_rtpbin.send_rtp_src_$CLIENT_INDEX ! udpsink host=${IP[$CLIENT_INDEX]} port=32768 ")
     
-    if [[ "${SYNCHRONIZED_PLAYBACK[CLIENT_INDEX]}" == "enable" ]]; then
+    if [[ "${SYNCHRONIZED_PLAYBACK[$CLIENT_INDEX]}" == "enable" ]]; then
       #set up RTPC control data RX and TX for this client
-      GST_SERVER_CODE+=("server_rtpbin.send_rtcp_src_$CLIENT_INDEX ! udpsink host=${IP[CLIENT_INDEX]} port=32769 sync=false async=false ")
-      GST_SERVER_CODE+=("udpsrc port=${RTPC_RX_PORT_NUM[CLIENT_INDEX]} ! server_rtpbin.recv_rtcp_sink_$CLIENT_INDEX ")
+      GST_SERVER_CODE+=("server_rtpbin.send_rtcp_src_$CLIENT_INDEX ! udpsink host=${IP[$CLIENT_INDEX]} port=32769 sync=false async=false ")
+      GST_SERVER_CODE+=("udpsrc port=${RTPC_RX_PORT_NUM[$CLIENT_INDEX]} ! server_rtpbin.recv_rtcp_sink_$CLIENT_INDEX ")
     fi
     
     unset CHANNEL_USE
-    IFS=' ' read -ra CHANNEL_USE <<<"${CLIENT_CHANNEL_USE[CLIENT_INDEX]}"
+    IFS=' ' read -ra CHANNEL_USE <<<"${CLIENT_CHANNEL_USE[$CLIENT_INDEX]}"
     for i in ${!CHANNEL_USE[@]}; do
       channel=${CHANNEL_USE[i]}
       if [ ${GLOBAL_SOURCE_USAGE[channel]} -gt 1 ]; then
         #the source for this channel is a tee (tee was created above)
-        GST_SERVER_CODE+=("  input_ch$channel"'. ! queue ! client'"$CLIENT_INDEX"'_stream.sink_'"${CLIENT_CONNECTIONS[CLIENT_INDEX]}")
+        GST_SERVER_CODE+=("  input_ch$channel"'. ! queue ! client'"$CLIENT_INDEX"'_stream.sink_'"${CLIENT_CONNECTIONS[$CLIENT_INDEX]}")
       else
         #the source for this channel is deinterleaved input. 
-        GST_SERVER_CODE+=("  input.src_$channel ! queue ! client$CLIENT_INDEX"'_stream.sink_'"${CLIENT_CONNECTIONS[CLIENT_INDEX]}")
+        GST_SERVER_CODE+=("  input.src_$channel ! queue ! client$CLIENT_INDEX"'_stream.sink_'"${CLIENT_CONNECTIONS[$CLIENT_INDEX]}")
       fi
-      (( CLIENT_CONNECTIONS[CLIENT_INDEX]++ ))
+      (( CLIENT_CONNECTIONS[$CLIENT_INDEX]++ ))
     done
   done
   #done creating server-side pipelines
@@ -1713,7 +1745,7 @@ function launch_system_clients {
   local saved_path #temp storage of path
   for ((CLIENT_INDEX=0; CLIENT_INDEX < ${#IP[@]}; CLIENT_INDEX++))
   do
-    if [[ ${IP[CLIENT_INDEX]} == "-1" ]] || [[ ${IP[CLIENT_INDEX]} == "-2" ]]; then
+    if [[ ${IP[$CLIENT_INDEX]} == "-1" ]] || [[ ${IP[$CLIENT_INDEX]} == "-2" ]]; then
       #this is a local-playback client or the clients' IP address is invalid. Skip it.
       continue
     fi
@@ -1723,68 +1755,68 @@ function launch_system_clients {
     
     #form the gstreamer command arguments for this client before connecting to client
     #declare use of rtpbin
-    GST_ARGS+=("rtpbin name=client_rtpbin ${CLIENT_RTPBIN_PARAMS[CLIENT_INDEX]} ")
+    GST_ARGS+=("rtpbin name=client_rtpbin ${CLIENT_RTPBIN_PARAMS[$CLIENT_INDEX]} ")
 
     #set up audio data RX, declare its properties, and route to rtpbin 
     GST_ARGS+=("udpsrc port=32768 caps='application/x-rtp, media=(string)audio,")
     #add the clock rate and encoding to the caps string  
-    GST_ARGS+=("clock-rate=(int)"${STREAM_RATE[CLIENT_INDEX]}", encoding-name=(string)L"${STREAM_BITS[CLIENT_INDEX]}",")
+    GST_ARGS+=("clock-rate=(int)"${STREAM_RATE[$CLIENT_INDEX]}", encoding-name=(string)L"${STREAM_BITS[$CLIENT_INDEX]}",")
     #add the number of channels to the caps string 
-    IFS=' ' read -ra CHANNEL_USE <<<"${CLIENT_CHANNEL_USE[CLIENT_INDEX]}" #copy the list of channels into CHANNEL_USE
+    IFS=' ' read -ra CHANNEL_USE <<<"${CLIENT_CHANNEL_USE[$CLIENT_INDEX]}" #copy the list of channels into CHANNEL_USE
     GST_ARGS+=("channels=(int)${#CHANNEL_USE[@]}"',')
     GST_ARGS+=("payload=(int)96' ! client_rtpbin.recv_rtp_sink_0 ")
 
     #get audio data from rtpbin for this client:
     GST_ARGS+=("client_rtpbin. ! ")
-    GST_ARGS+=("rtpL"${STREAM_BITS[CLIENT_INDEX]}"depay ! ")
+    GST_ARGS+=("rtpL"${STREAM_BITS[$CLIENT_INDEX]}"depay ! ")
     GST_ARGS+=('audioconvert ! audio/x-raw,format=F32LE ! ')
     GST_ARGS+=('deinterleave name=input ')
 
-    if [[ "${SYNCHRONIZED_PLAYBACK[CLIENT_INDEX]}" == "enable" ]]; then
+    if [[ "${SYNCHRONIZED_PLAYBACK[$CLIENT_INDEX]}" == "enable" ]]; then
       #set up RTPC control data RX and TX for this client
       GST_ARGS+=('udpsrc port=32769 ! client_rtpbin.recv_rtcp_sink_0 ')
-      GST_ARGS+=("client_rtpbin.send_rtcp_src_0 ! udpsink host=$server_IP_address port=${RTPC_RX_PORT_NUM[CLIENT_INDEX]} sync=false async=false ")
+      GST_ARGS+=("client_rtpbin.send_rtcp_src_0 ! udpsink host=$server_IP_address port=${RTPC_RX_PORT_NUM[$CLIENT_INDEX]} sync=false async=false ")
     fi
     
     #append the GST CODE that was created while reading in the client configuration file
-    GST_ARGS+=( "${GST_CLIENT_CODE[CLIENT_INDEX]}" )
+    GST_ARGS+=( "${GST_CLIENT_CODE[$CLIENT_INDEX]}" )
 
     #print out GST_ARGS for debugging purposes
      if [[ "$DEBUG_MODE" != "" ]]; then
        echo; echo
-       echo "# GST_ARGS in function launch_system_clients, for CLIENT $CLIENT_INDEX at ${IP[CLIENT_INDEX]}"
+       echo "# GST_ARGS in function launch_system_clients, for CLIENT $CLIENT_INDEX at ${IP[$CLIENT_INDEX]}"
        echo '# '${GST_ARGS[*]}
        echo; echo; echo
      fi
 
-    if [[ "${LOCAL_SCRIPT_BEFORE_LAUNCH[CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
+    if [[ "${LOCAL_SCRIPT_BEFORE_LAUNCH[$CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
       #execute on the client a script that resides on the server filesystem 
       #as specified in the LOCAL_SCRIPT_BEFORE_LAUNCH text
-      eval ${ACCESS[CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_BEFORE_LAUNCH[CLIENT_INDEX]}
+      eval ${ACCESS[$CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_BEFORE_LAUNCH[$CLIENT_INDEX]}
       #if client access failed, generate error message and move on to next client
       if (( $? > 0 )); then
-        message="An error was encountered while trying to run the local script on client "${IP[CLIENT_INDEX]}" before launch"
+        message="An error was encountered while trying to run the local script on client "${IP[$CLIENT_INDEX]}" before launch"
         commit_to_log "$message" 
       fi
     fi
 
     #attempt to connect to client using the user-supplied access string and run various commands
-    eval ${ACCESS[CLIENT_INDEX]} /bin/bash << CLIENT_LAUNCH_HERE_DOC
+    eval ${ACCESS[$CLIENT_INDEX]} /bin/bash << CLIENT_LAUNCH_HERE_DOC
     #begin HERE-DOCUMENT commands that are run on the client
     saved_path=\$(pwd)
     
-    if [[ "${OTHER_COMMAND_BEFORE_LAUNCH[CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
+    if [[ "${OTHER_COMMAND_BEFORE_LAUNCH[$CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
       #execute on the client commands/scripts located on the client 
       #as specified in the OTHER_COMMAND_BEFORE_LAUNCH text
-      eval ${OTHER_COMMAND_BEFORE_LAUNCH[CLIENT_INDEX]}
+      eval ${OTHER_COMMAND_BEFORE_LAUNCH[$CLIENT_INDEX]}
     fi
     
     #return to login dir
     cd $saved_path
     #create user supplied path if it does not exist
-    mkdir -p ${INFO_PATH[CLIENT_INDEX]}
+    mkdir -p ${INFO_PATH[$CLIENT_INDEX]}
     #cd using user supplied path
-    cd ${INFO_PATH[CLIENT_INDEX]}
+    cd ${INFO_PATH[$CLIENT_INDEX]}
     
     #run gstreamer pipeline on client as nohup background and direct output to file
     if [[ "$DEBUG_MODE" == "" ]]; then
@@ -1801,10 +1833,10 @@ function launch_system_clients {
     #put the process PID into the cPID file (overwriting any previous contents)   
     echo "\$gst_pid" > cPID
   
-    if [[ "${OTHER_COMMAND_AFTER_LAUNCH[CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
+    if [[ "${OTHER_COMMAND_AFTER_LAUNCH[$CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
       #execute on the client commands/scripts located on the client 
       #as specified in the OTHER_COMMAND_AFTER_LAUNCH text
-      eval ${OTHER_COMMAND_AFTER_LAUNCH[CLIENT_INDEX]}
+      eval ${OTHER_COMMAND_AFTER_LAUNCH[$CLIENT_INDEX]}
     fi
 
     #client startup complete. logout of client
@@ -1815,21 +1847,21 @@ CLIENT_LAUNCH_HERE_DOC
 
     #if client access failed, generate error message and move on to next client
     if (( $? > 0 )); then
-      message="An error was encountered while trying to launch client "${IP[CLIENT_INDEX]}
+      message="An error was encountered while trying to launch client "${IP[$CLIENT_INDEX]}
       commit_to_log "$message" 
       continue;
     else
-      message="Client ${IP[CLIENT_INDEX]} was launched sucessfully"
+      message="Client ${IP[$CLIENT_INDEX]} was launched sucessfully"
       commit_to_log "$message" 
     fi
 
-    if [[ "${LOCAL_SCRIPT_AFTER_LAUNCH[CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
+    if [[ "${LOCAL_SCRIPT_AFTER_LAUNCH[$CLIENT_INDEX]}" != "" ]] && [[ "$DEBUG_MODE" != "no-run" ]]; then
       #execute on the client a script that resides on the server filesystem 
       #as specified in the LOCAL_SCRIPT_AFTER_LAUNCH text
-      eval ${ACCESS[CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_AFTER_LAUNCH[CLIENT_INDEX]}
+      eval ${ACCESS[$CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_AFTER_LAUNCH[$CLIENT_INDEX]}
       #if client access failed, generate error message and move on to next client
       if (( $? > 0 )); then
-        message="An error was encountered while trying to run the local script on client "${IP[CLIENT_INDEX]}" after launch"
+        message="An error was encountered while trying to run the local script on client "${IP[$CLIENT_INDEX]}" after launch"
         commit_to_log "$message" 
       fi
     fi
@@ -1842,12 +1874,12 @@ function terminate_system_clients {
   #connect to each client, terminate gstreamer processes, and run termination scripts
   for ((CLIENT_INDEX=0; CLIENT_INDEX < ${#IP[@]}; CLIENT_INDEX++))
   do
-    if [[ "${IP[CLIENT_INDEX]}" == "-2"  ]]; then
+    if [[ "${IP[$CLIENT_INDEX]}" == "-2"  ]]; then
       #client's IP address is invalid. Skip to next client
       continue
     fi
     #take action depending whether client is local or remote
-    if [[ "${IP[CLIENT_INDEX]}" == "-1"  ]]; then
+    if [[ "${IP[$CLIENT_INDEX]}" == "-1"  ]]; then
       #client is a LOCAL_PLAYBACK client 
       #it has already been terminated along with the server-side process
       #no further action is needed, so skip to next client
@@ -1857,39 +1889,39 @@ function terminate_system_clients {
     fi
     echo 'terminating system client #'"$(( $CLIENT_INDEX + 1 ))"'...'           
     #client is remote: before proceeding, confirm client is reachable using ping
-    ping -c 1 ${IP[CLIENT_INDEX]} >/dev/null
+    ping -c 1 ${IP[$CLIENT_INDEX]} >/dev/null
     if [ $? -ne 0 ]; then
-      message="ERROR: the client at IP="${IP[CLIENT_INDEX]}" was not reachable."
+      message="ERROR: the client at IP="${IP[$CLIENT_INDEX]}" was not reachable."
       commit_to_log "$message"
       continue;
     fi
     #begin non-local client termination procedure
-    if [[ "${LOCAL_SCRIPT_BEFORE_TERMINATE[CLIENT_INDEX]}" != "" ]]; then
+    if [[ "${LOCAL_SCRIPT_BEFORE_TERMINATE[$CLIENT_INDEX]}" != "" ]]; then
       #execute on the client a script that resides on the server filesystem 
       #as specified in the LOCAL_SCRIPT_BEFORE_TERMINATE text
-      eval ${ACCESS[CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_BEFORE_TERMINATE[CLIENT_INDEX]}
+      eval ${ACCESS[$CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_BEFORE_TERMINATE[$CLIENT_INDEX]}
       #if client access failed, generate error message and move on to next client
       if (( $? > 0 )); then
-        message="An error was encountered while trying to run the local script on client "${IP[CLIENT_INDEX]}" before terminate"
+        message="An error was encountered while trying to run the local script on client "${IP[$CLIENT_INDEX]}" before terminate"
         commit_to_log "$message"
       fi
     fi
     
     #attempt to connect to client using the user-supplied access string and run some commands
-    eval ${ACCESS[CLIENT_INDEX]} /bin/bash << CLIENT_TERMINATE_HERE_DOC
+    eval ${ACCESS[$CLIENT_INDEX]} /bin/bash << CLIENT_TERMINATE_HERE_DOC
     #begin HERE-DOCUMENT commands that are run on the client
     saved_path=\$(pwd)
     
-    if [[ "${OTHER_COMMAND_BEFORE_TERMINATE[CLIENT_INDEX]}" != "" ]]; then
+    if [[ "${OTHER_COMMAND_BEFORE_TERMINATE[$CLIENT_INDEX]}" != "" ]]; then
       #execute on the client commands/scripts located on the client 
       #as specified in the OTHER_COMMAND_BEFORE_TERMINATE text
-      eval ${OTHER_COMMAND_BEFORE_TERMINATE[CLIENT_INDEX]}
+      eval ${OTHER_COMMAND_BEFORE_TERMINATE[$CLIENT_INDEX]}
     fi
     
     #return to login dir
     cd \$saved_path
     #cd to user supplied path
-    cd ${INFO_PATH[CLIENT_INDEX]}
+    cd ${INFO_PATH[$CLIENT_INDEX]}
 
     if [[ $user_action == "k" ]]; then
       #if killall mode, just kill all running gst-launch-1.0 processes and remove the cPID file
@@ -1918,10 +1950,10 @@ function terminate_system_clients {
       fi
     fi
 
-    if [[ "${OTHER_COMMAND_AFTER_TERMINATE[CLIENT_INDEX]}" != "" ]]; then
+    if [[ "${OTHER_COMMAND_AFTER_TERMINATE[$CLIENT_INDEX]}" != "" ]]; then
       #execute on the client commands/scripts located on the client 
       #as specified in the OTHER_COMMAND_AFTER_TERMINATE text
-      eval ${OTHER_COMMAND_AFTER_TERMINATE[CLIENT_INDEX]}
+      eval ${OTHER_COMMAND_AFTER_TERMINATE[$CLIENT_INDEX]}
     fi
     
     #done with this client. Logout of client
@@ -1932,21 +1964,21 @@ CLIENT_TERMINATE_HERE_DOC
     #if client access failed, generate error message and move on to next client
     ret_val=$?
     if (( $ret_val > 0 )); then
-      message='   While trying to terminate client '${IP[CLIENT_INDEX]}': an error was encountered.'
+      message='   While trying to terminate client '${IP[$CLIENT_INDEX]}': an error was encountered.'
       commit_to_log "$message" 
       continue;
     else
-      message="   Client ${IP[CLIENT_INDEX]} was terminated successfully"
+      message="   Client ${IP[$CLIENT_INDEX]} was terminated successfully"
       commit_to_log "$message" 
   fi
 
-    if [[ "${LOCAL_SCRIPT_AFTER_TERMINATE[CLIENT_INDEX]}" != "" ]]; then
+    if [[ "${LOCAL_SCRIPT_AFTER_TERMINATE[$CLIENT_INDEX]}" != "" ]]; then
       #execute on the client a script that resides on the server filesystem 
       #as specified in the LOCAL_SCRIPT_AFTER_TERMINATE text
-      eval ${ACCESS[CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_AFTER_TERMINATE[CLIENT_INDEX]}
+      eval ${ACCESS[$CLIENT_INDEX]} 'bash -s' -- < ${LOCAL_SCRIPT_AFTER_TERMINATE[$CLIENT_INDEX]}
       #if client access failed, generate error message and move on to next client
       if (( $? > 0 )); then
-        message="An error was encountered while trying to run the local script on client "${IP[CLIENT_INDEX]}" after terminate"
+        message="An error was encountered while trying to run the local script on client "${IP[$CLIENT_INDEX]}" after terminate"
         commit_to_log "$message" 
       fi
     fi
@@ -2383,7 +2415,7 @@ function do_volume_control {
     last_user_keypress=$user_keypress 
     read -t 0.05 -N 1 extra_keypress
     if [[ $extra_keypress != "" ]] && [[ $last_user_keypress == $user_keypress ]]; then
-      (( acceleration_accumulator++ )) #creates acceleration by incresing the increment of change
+      (( acceleration_accumulator+=2 )) #creates acceleration by incresing the increment of change
     else
       acceleration_accumulator=0
     fi
@@ -3096,6 +3128,9 @@ declare -a SINK_CONNECTIONS
 declare -a route_and_clones
 declare -a GST_SERVER_CODE  
 declare -a SYNCHRONIZED_PLAYBACK  
+
+#define some large integer as a unique index where default client parameter values will be stored
+default_value_index = 999
 
 VOLUME_CONTROL_STYLE="graphical"
 VOLUME_CONTROL_COLS="50"

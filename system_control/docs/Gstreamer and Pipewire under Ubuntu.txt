@@ -1,0 +1,84 @@
+NOTES on using Gstreamer and Pipewire under Ubuntu
+Charlie Laub
+date: 7 APR 2026
+
+THE GOAL: control the sample rate and resampling for a Gstreamer pipeline operating with input and output connected to Pipewire.
+
+The flowgraph looks like this:
+Application --> Pipewire --> { pipewiresrc...Gstreamer pipeline...TX (RTP) } --> LAN --> { RX (RTP)...Gstreamer pipeline...pulsesink } --> Pipewire --> ALSA --> DAC
+
+There are two computers that can communicate (send data) over the LAN (see flowgraph, above). On the Application end, Gstreamer will get its audio from Pipewire. We need to control sample rate and resampling there because the audio player application could be playing audio with a wide variety of rates and formats and we need to bring this all to one rate and format to feed GSASysCon. On the output/DAC end, the Gstreamer pipeline sends audio to Pipewire via pipewire-pulse, which sends it along to the DAC via ALSA.
+
+On the Application computer, pavucontrol has been installed and is used to turn all sinks off. In response Pipewire creates a dummy null sink. Audio is taken from the null_sink.monitor. The null_sink has its own volume control that can be used as a global system volume. When you combine this with input switching using GSASysCon you get something akin to a computer-based preamplifier, but that is a topic for another day.
+
+CONFIGURATION:
+In order to configure Pipewire we create local configuration files on both computers. First create the directory:
+~/.config/pipewire
+and copy these files into it:
+cp /usr/share/pipewire/pipewire.conf ~/.config/pipewire
+cp /usr/share/pipewire/pipewire-pulse.conf ~/.config/pipewire
+
+Edit the pipewire-conf file and change the text within the section context.properties to the following:
+## Properties for the DSP configuration.
+default.clock.rate = 96000
+#default.clock.allowed-rates = [ 96000 ] <-- NOTE: this line should be commented out
+default.clock.quantum = 1024
+default.clock.min-quantum = 32
+default.clock.max-quantum = 2048
+The default.clock.rate line tells Pipewire to run at this rate only. Pipwire is resampling all audio to this rate, whatever the rate of the audio track that the application is playing. This allows us to specify this rate in the input end of the Gstreamer pipeline.
+
+The pipewire instance on the ALSA (sink) end of the flowgraph is configured like this:
+## Properties for the DSP configuration.
+default.clock.rate = 96000
+default.clock.allowed-rates = [ 44100 48000 96000 192000 ]
+default.clock.quantum = 1024
+Here we provide both a default rate as well as a list of rates that the DAC can accept without requiring Pipewire to resample. It will run at any of the rates in the list that match the Gstreamer pipeline rate.
+
+After saving the files you should restart Pipewire using this command:
+systemctl --user restart wireplumber pipewire pipewire-pulse
+
+NOTE: At this point I ran my Gstreamer pipeline and sent audio over my LAN. I wanted to check what was going on, so I used the pw-top monitor. Unfortunately due to the real time nature of the output I cannot capture the text so I will describe the output from pw-top below. 
+
+To inspect what Pipewire is doing we can use the pw-top command. We see on the computer running the audio player application that the sample rate coming from the application varies depending on what it is playing (as expected). However, even though Pipewire is configured to run at a rate of 96kHz the auto_null dummy device of pipewire-pulse is still running at 48k Hz and may be performing an unnecessary resampling step. On the DAC computer, both the Gstreamer pipeline and the ALSA device run via Pipewire are running at 96kHz, which is perfect. Thus we need a way to set the null_sink sample rate. I could not find a way to do this via any configuration setting (this was my experience in the past with Pulse Audio as well). Instead we will create a custom null_sink using a rule that is placed in the user directory ~/.config/pipewire/pipewire-pulse.conf.d. The rule can be of any name as long as it bears the extension .conf, for example: custom_null_sink.conf. The file text is:
+pulse.cmd = [
+{ cmd = "load-module" args = "module-null-sink sink_name=96k_nullsink rate=96000" }
+]
+After saving the file, we restart Pipewire using the command:
+systemctl --user restart wireplumber pipewire pipewire-pulse
+We again use pw-top and see that Pipewire's default null_monitor has been replaced with our custom one that runs at the desired sample rate of 96k Hz. The volume control of the 96k_nullsink sink can still be accessed via an amixer simple control. If we type
+amixer -Dpipewire scontrols
+we can see that there are two simple controls:
+Simple mixer control 'Master',0
+Simple mixer control 'Capture',0
+The control called Master is tied to the 96k_nullsink volume and this can be integrated into GSASysCon's vollume control utility. This volume control can be adjusted both from within GSASysCon, from the terminal using an axmixer command, or often using multimedia volume up/down/mute hotkeys if they are present on your keaboard.
+
+Now that our custom null sink is running at the same rate as the rest of the playback chain it will not perform any additional resampling. The only resampling that occurs is from the rate of the player application to the 96k Hz rate at which Pipewire is running. GSASysCon's Gstreamer pipelines cannot change their rate or format once launched so their input must be delivered at a fixed sample rate. We have this all sorted out now.
+
+NOTE that you can also run the command:
+pactl list sources short
+on the Application end to shows that the custom null sink is running at 96kHz:
+37 96k_nullsink.monitor PipeWire float32le 2ch 96000Hz RUNNING
+
+SETTING THE RESAMPLING QUALITY:
+The other item to consider is the quality setting for audio resampling under Pipewire (pipewire-pulse). This can be adjusted in the file pipewire-pulse.conf on the computer where the player application is running (this is the only place where resampling is occurring). Edit the file pipewire-pulse.conf in your local user configuration settings directory ~/config/pipewire and change the lines in the beginning of the stream section as shown below:
+stream.properties = {
+node.latency = 1024/96000
+#node.autoconnect = true
+resample.quality = 10
+Here the user can set the resample quality. The default is 4. A setting of 10 is very high quality. The maximum value is 14 but increases CPU usage by several times over the 10 setting. After saving the file, we restart Pipewire using the command:
+systemctl --user restart wireplumber pipewire pipewire-pulse
+
+
+
+CONTROLLING LATENCY
+Under Pipewire, latency is set using quantum values that control buffering. There are several ways to set the quantum for Pipewire processes. One way is to edit the pipewire.conf file and change the min-quantum and max-quantum values in the DSP properties section:
+   ## Properties for the DSP configuration.
+    default.clock.rate          = 96000
+    default.clock.allowed-rates = [ 44100 48000 96000 192000 ]
+    default.clock.quantum       = 512
+    default.clock.min-quantum   = 64
+    default.clock.max-quantum   = 2048
+    default.clock.quantum-limit = 2048
+
+
+

@@ -3,23 +3,24 @@
 #      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
 #      A bash-script-based streaming audio system controller for GStreamer    #
 #                                                                             #
-#                 Written by: Charlie Laub, 2025                              #
+#                 Written by: Charlie Laub, 2026                              #
 #                                                                             #
 #-----------------------------------------------------------------------------#
 
       
-                            GSASysCon Setup Guide
+                       GSASysCon Installation Guide 
 
 CONTENTS:
-An Overview of the Help Files
-The GSASysCon File Structure
-The Location of User Systems with the File Structure
+Introduction:
+  An Overview of the Help Files
+  The GSASysCon File Structure
+  The Location of User Systems with the File Structure
 
-GSASysCon Installation
-   Enabling the Script Files
-   Automated Installation
-   First Test of GSASysCon
-   Manual Installation
+GSASysCon Installation Instructions
+   STEP 1 : Enabling the Script Files
+   STEP 2 : Automated Installation
+   STEP 3 : First Test of GSASysCon
+   Optional: Manual Installation (not recommended )
 
 A List of GSASysCon Dependencies and the Required Bash Version:
 
@@ -29,22 +30,23 @@ A List of GSASysCon Dependencies and the Required Bash Version:
 An Overview of the Help Files:
 ------------------------------------------------------------------------------
 There are a number of help files in the docs subfolder:
-* help.txt - info about the command line options for GSASysCon. This file is
-   written to screen if GSASysCon is run with the --help option or when no
-   option or parameter is provided
-* GSASysCon Basic Topics.txt - info about the system_configuration file, DSP
-* GSASysCon Advanced Topics.txt - more in depth coverage of features, etc.
-* Installing the ACDf LADSPA plugin.txt - how to install the included ACDf 
-   LADSPA plugin used to perform DSP IIR filtering in GSASysCon
-* ACDf_usage_notes.txt - usage info and help for the ACDf filters
-* About the global configuration file.txt - the global configuration file
-   controls how the GSASysCon app behaves and is located in the config dir
+* Command Line Help.txt - info about the command line options for GSASysCon. 
+  This file is written to screen if GSASysCon is run with the --help option or 
+  when no option or parameter is provided
+* GSASysCon Basic Topics.txt - Both a source of basic info and a short tutorial 
+  on how to write a system_configuration file and add DSP processing
+* GSASysCon Advanced Topics.txt - more complete and in depth coverage of all
+  features, etc.
 * Using the ALSAINFO app.txt - ALSAINFO is a helper program to determine valid
    audio formats and channel assignments for an alsa card under GStreamer
-After following the setup steps below, it is recommended that you read through
-these help files to better understand the capabilities and configuration of
-GSASysCon.     
+* About the Global Configuration File.txt - the global configuration file
+   controls how the GSASysCon app behaves and is located in the config dir.
+* GSASysCon Installation Guide.txt - this document
 
+This document contains an overview of the GSASysCon file tree and instructions
+on how to run the automated setup script (highly recommended). After following
+these instructions you should read the document GSASysCon Basic Topics to start 
+putting together your first GSASysCon system. 
 
 
 
@@ -52,16 +54,16 @@ The GSASysCon File Structure
 ------------------------------------------------------------------------------
 The GStreamer Streaming Audio System Controller uses the following directory 
 structure to store and organize information. When you install GSASysCon you 
-install this entire directory structure. 
-
-You may rename the from system_control directory to any name that you would
-like. The remaining directory names on the left, below (config to system_info), 
-should remain unchanged. 
+install this entire directory structure below a folder with the name
+  GSASysCon-Vx.yy
+where x.yy indicates the version and revision number, e.g. 3.17. The directory
+names under the system_control folder should remain unchanged.
 
 DIRECTORY                        USAGE
 system_control                    the top directory of GSASysCon
 |___config                        contains global config file(s)
 |___docs                          help files and other docs
+|___error_reports                 debug output
 |___Examples                      example systems
 |___filter_defs                   where filter definition files are located
 |___LADSPA                        ladspa plugins, e.g. ACDf
@@ -78,67 +80,82 @@ system_control                    the top directory of GSASysCon
         |___back_patio                        name the folder as you wish...
                 |___system_configuration      but always use this filename!        
 
+ 
+The user SHOULD create new folders within the system_info directory that are 
+named for each playback system that you wish to create. For more info see the 
+next section.  
+
+Each version of GSASysCon is independent of the other and the OS is not aware of
+any of them. When you install a new version, you may move any existing systems 
+over to the new version simply by copying the systems_info folder including all
+subfolders and their contents to the newer version.  
+
 
 
 
 The Location of User Systems with the File Structure
 ------------------------------------------------------------------------------
 The user creates new directories within the system_info directory that are
-called system folders. These must consist of the system name with spaces 
+called system folders. These MUST consist of the system name with spaces 
 replaced by the underscore character. Example system folders that follow this 
 convention are shown above. The folder name, with underscores replaced by 
 spaces, will be shown in the GSASysCon control interface. 
 
 In each system subdirectory, a file named "system_configuration" contains all 
-of the information about the system, e.g. input, output, filters, etc. 
+of the information about the system, e.g. input, output, filters, etc. Other
+files placed into these directories will be ignored by GSASysCon.
 
 
 
 
-Enabling the Script Files:
+================================================================================
+
+                          INSTALLATION INSTRUCTIONS
+
+================================================================================
+
+
+STEP 1: Enabling the Script Files:
 ------------------------------------------------------------------------------
-You must complete this step before performing either the Automated or Manual 
-installation. 
+You must complete this step before performing the Automated installation. 
 
-Begin by opening a bash terminal window. We will enable execution for several 
-GSASysCon related shell scripts. Navigate to the 'system_control/scripts' 
-subdirectory and then run the command:
+You should enable execution for several GSASysCon related shell scripts. 
+First opening a terminal window in your operating system. Navigate to the 
+'system_control/scripts' subdirectory and then run the command:
    chmod +x *.sh
 
 
-
-
-Automated Installation:
+STEP 2: Automated Installation:
 ------------------------------------------------------------------------------
-After enabling the script files as described above, if you wish to run the 
-automated installer remain in the system_control/scripts directory and type at
-the command prompt:
+After enabling script file execution, run the automated installer. Type at the
+command prompt:
    sudo ./Install.sh
 This will perform all of the actions that are outlined below under "Manual
 Installation" for you. 
 
-At the end of the automated installation you will be asked if you would like to
-run the "First Test of GSASysCon". It is strongly recommended that you do so at
-that time. At the conclusion of the first test, the computer should be rebooted.
+At the end of the automated installation you will be prompted to run the "First
+Test of GSASysCon" (see below). Please do that, but read about it below. At the
+conclusion of test, the computer should be rebooted.
 
 
-
-
-First Test of GSASysCon:
+STEP 3 : First Test of GSASysCon:
 ------------------------------------------------------------------------------
-The "first test" is intended to introduce you through using GSASysCon and test
-that it is working properly.
+The "first test" is intended to introduce you to using GSASysCon in the 
+continuous run mode, and test that it is working properly. Usually this is run
+automatically at the end of the installation process, but you can re-run it 
+later by following these same instruction. You only need to run this once to 
+check the GSASysCon and Gstreamer are both working properly. 
 
+To run the First Test manually:
 In the system_info folder there is a directory called "first_test" containing a 
 system_configuration file. This file uses a "fake" GStreamer source and sink
 that are not connected to any audio device. These are used to check that the
-GSASysCon installation was sucessful. Run the system using the following
+GSASysCon installation was successful. Run the system using the following
 steps:
 A. Enter the system_control/scripts directory
 
 B. Run the GSASysCon script by typing: 
-   ./GSASysConV3.16.sh --config_file=minimal_config.txt -r 10
-If version 3.16 is not present, run the current/latest version of GSASysCon. 
+   ./GSASysCon.sh --config_file=minimal_config.txt -r 10
 
 C. You should see the following screen:
     GSASysCon:
@@ -165,29 +182,29 @@ elapsed time. You may try that now (press ENTER).
 
 Finally, again press "1" followed by the ENTER key. The status should change 
 back to "OFF". If this was successful, type "x" and press enter to exit  
-GSASysCon and return to the command line. 
+GSASysCon and return to the command line. You have now successfully installed
+GSASysCon and confirmed it is working properly. Congratulations!
 
-After the first test please read help file "GSASysCon Basic Topics.txt" to 
-better understand how audio systems are described in the system_configuration 
+NEXT STEPS:
+
+At this time, please read help file "GSASysCon Basic Topics.txt" to better 
+understand how audio systems are described in the system_configuration 
 file. The examples provided there should help you create your first system with
-GSASysCon. If you are unfamiliar with ACDf or LADSPA you may also want to read 
-the file "ACDf_usage_notes.txt" located in the docs folder. ACDf filters form 
-the basis of DSP within GSASysCon, however there is a simplified way to describe 
-crossover filters and EQ that does not involve ACDf directly. The topic is 
-introduced in the GSASysCon Basic Topics document. 
+GSASysCon.  
 
   
 
 
 Manual Installation:
 ------------------------------------------------------------------------------
-For most users the automated installer is the best option, however, all of the
-steps for installation can also be performed manually and are listed below.
+The automated installer is the best option and manual installation is not 
+recommended, however, all of the steps for installation can also be performed
+manually and are listed below for your information.
 
-When GStreamer is not installed or is only partially installed, GSASysCon can 
+When GStreamer is not installed or is only partially installed, GSASysCon may 
 run but cannot launch any systems. Therefore the first step is to check that 
-the necessary GStreamer components have been installed and to install a few 
-additional packages.  
+all the necessary GStreamer components have been installed and to install a few 
+additional packages. This is done using aptitude.
 
 Begin by opening a bash terminal window.
 

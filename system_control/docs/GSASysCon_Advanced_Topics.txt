@@ -3,7 +3,7 @@
 #      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
 #      A bash-script-based streaming audio system controller for GStreamer    #
 #                                                                             #
-#                       Written by: Charlie Laub, 2025                        #
+#                       Written by: Charlie Laub, 2026                        #
 #                                                                             #
 #-----------------------------------------------------------------------------#
 
@@ -23,11 +23,11 @@ System Configuration File Tips and Tricks
    Using the Filter Definitions in a System Configuration File
    Channel Mixing/Up-Mixing/Defining New Channels
    Triggering Other software while launching/terminating a GSASysCon 
-      Local System
-   Using Multiple DACs within the same client
+      System
    Using Multiple Clients within the same system
-   About the ALSA Loopback
+   Using Multiple DACs within the same client
    Multiple Instances of GSASysCon
+Resampling within GSASysCon systems
 Volume Control via GSASysCon
    Using the volume control
    Configuring the volume control in the system_configuration file
@@ -43,12 +43,18 @@ HOW TO USE GSASysCon WITH REMOTE CLIENTS:
    The System_configuration File for a Remote Client
    System Configuration for Multiple Remote Clients 
    Improving the Synchronicity of Multiple Remote Clients
-   Triggering Other software while launching/terminating a GSASysCon
-      Remote System
-The Sections of the System Configuration File
+   Retrieving the Status of Remote Clients
+The Two Sections of the System Configuration File
    Section #1 - System and System-Wide Parameters and Declarations
    Section #2 - Client Related Parameters and Declarations
    Declaring Multiple Clients and Multiple Sinks Within A System
+Error Handling and Debugging with GSASysCon and GStreamer
+   Where Do Errors Come From and Where Are They Reported?
+   How to Generate and Review the Error/Debugging Output Files
+   Setting the Level of Debug Information Provided by Gstreamer  
+   How to Find Error Messages Within the Debug Output Files
+   Discovering Gstreamer Element Properties using gst-inspect-1.0
+Obtaining the Gstreamer Pipeline Command String Produced by GSASysCon
 
 
 
@@ -70,6 +76,7 @@ lines are permitted. Any blank lines or lines which become blank after comments
 are removed will be skipped. 
 
 
+
 About User Variables:
 --------------------------------------------------------------
 The system configuration file allows for the use of variables. This can be 
@@ -78,6 +85,7 @@ file. When the file is being processed by the GSASysCon app, wherever the
 variable name appears the contents of that variables are substituted for it.
 Variable definitions should be made before any client declarations, in the top
 section of the configuration file. 
+
 
 
 Defining and Using Single-Line Variables:
@@ -90,6 +98,7 @@ The var_name should be unique and must not be a keyword or system command, etc.
 Single-line variable replacement is performed after all the multi-line variable
 replacements have been completed. Therefore, a single-line variable name can be
 used in a multi-line variable or as a parameter for one.    
+
 
 
 Defining and Using Multi-Line Variables:
@@ -121,6 +130,7 @@ Multi-line variables are used intensively in the filter definition files. These
 provide additional features and are described later in this document.
 
 
+
 HINTS About Choosing Variable or Parameter Names:
 --------------------------------------------------------------
 The values for both single-line user variables and the parameters of multi-line
@@ -130,6 +140,7 @@ used, and it is possible to use a variable that is a reserved word or otherwise
 already has an existing meaning within GSASysCon or the ACDf LADSPA plugin. A 
 good approach is to use descriptive words rather than abbreviations that might 
 already be a word or part of one.
+
 
 
 File Insertion:
@@ -177,6 +188,7 @@ then inserted into each system configuration file using the insert from file
 directive.
 
 
+
 Co-Listing Route Declarations that share the same processing
 --------------------------------------------------------------
 In the system configuration file, ROUTEs define paths for audio between sources
@@ -185,23 +197,28 @@ DSP filers or GStreamer elements. In some cases these statements are identical
 for two or more ROUTEs. Instead of repeating the list again, these ROUTEs are
 listed on the same line, separated by a semicolon, with the list below. For
 example the explicit listing of all ROUTE elements might look like this:
+
    ROUTE=0,0,0
    filter 1
    filter 2
-   GStreamer element 1
+   filter 3
    ROUTE=1,0,1
    filter 1
    filter 2
-   GStreamer element 1
-but can be written like this:
+   filter 3
+
+but when filter 1,2, and 3 are the same, the commands can be written in a more
+compact form, like this:
+
    ROUTE=0,0,0; ROUTE=1,0,1
    filter 1
    filter 2
-   GStreamer element 1
-The result is exactly the same. In the GSASysCon app, the lines are expanded 
-back to the explicit version. This is helpful when processing stereo (2-channel)
-audio, because usually the same processing is applied to both left and right 
-channels. 
+   filter 3
+
+During the GSASysCon processing of the file the lines are expanded back to the
+explicit version. This is helpful when processing stereo (2-channel) audio,
+because usually the same processing is applied to both left and right channels.
+
 
 
 About Filter Definition Files
@@ -242,6 +259,7 @@ usage hints.
 NOTE that all parameter names are case sensitive!
 
 
+
 Using the Filter Definitions in a System Configuration File
 --------------------------------------------------------------
 In order to use a filter definition as part of a system configuration, the file 
@@ -261,6 +279,7 @@ GSASysCon Basic Topics.
 
 To see a list of the filters available, please read the file(s) located in the
 filter_defs directory. 
+
 
 
 Channel Mixing/Up-Mixing/Defining New Channels
@@ -319,32 +338,79 @@ definitions in the system_configuration file and only applies to clients that
 are specified in the same file.  
 
 
-Triggering Other software while launching/terminating a GSASysCon Local System
+
+Triggering Other software while launching/terminating a GSASysCon System
 --------------------------------------------------------------
-As part of system_configuration file the user can define single-line command or 
-shell scripts that they wish to be executed when the system is being turned on
-or off. For example, a shell script might be used to perform an action in another
-program, or to trigger an external device or relay, etc. There are many 
+As part of system_configuration file the user can specify a command or shell
+script that they wish to be executed when the system is being turned on
+or off. For example, a shell script might be used to perform an action in
+another program, or to trigger an external device or relay, etc. There are many
 potential uses for this versatile capability.
 
-When the client is a LOCAL_PLAYBACK client, the following can be used:
-   LOCAL_SCRIPT_BEFORE_LAUNCH
-   LOCAL_SCRIPT_AFTER_LAUNCH
-   LOCAL_SCRIPT_BEFORE_TERMINATE
-   LOCAL_SCRIPT_AFTER_TERMINATE
+The directive for these actions begins with the keyword EXTERNAL_COMMAND. There
+are three options:
+RESIDES: Where does the script reside?
+    a. local (in the local file system)
+    b. remote (on the client machine)
 
-The usage syntax is keyword = filepath-name, e.g.
- 
-   LOCAL_SCRIPT_BEFORE_LAUNCH = /home/charlie/my_scripts/do_something.sh
+RUN_WHEN: When does the script execute?
+    a. before_launch
+    b. after_launch
+    c. before_terminate
+    d. after_terminate
 
-Keywords are one of the four listed above. BEFORE/AFTER and LAUNCH/TERMINATE 
-refer to when the script should be executed in relation to the launch or 
-terminate action for the system. For 
-example:
-  LOCAL_SCRIPT_BEFORE_LAUNCH = turn_on_amplifiers.sh
-would run the script "turn_on_amplifiers.sh" before launching the GStreamer 
-pipeline. These scripts reside on the local machine and will be executed on 
-the local machine.
+RUN_WHERE: Where does the script execute?
+    a. local (on the local machine)
+    b. remote (on the remote client)
+
+The RESIDES and RUN_WHERE options have the following default values:
+  RESIDES = local
+  RUN_WHERE = local
+When these parameters are omitted the default values are used. The RUN_WHEN
+and options must always be explicitly provided.
+
+A required COMMAND specifier tells GSASysCon where to find the command or
+script file to execute. The command string is subject to limitations that are
+listed below in the NOTES section, below.
+
+Syntax and example:
+EXTERNAL_COMMAND RESIDES=local RUN_WHERE=remote RUN_WHEN=before_launch COMMAND=command..or..script_filename
+
+NOTES REGARDING THE COMMAND STRING:
+Some rules must be followed in order for the command to be successfully executed.
+1. Semicolons are NEVER allowed as part of the command string. These are often
+used in the terminal to put multiple commands on a single line. If you would
+like to execute multiple commands, place them in a shell script and provide the
+script file name instead.
+2. If the command includes spaces, the entire command string must be enclosed
+in quotation marks (single or double quotations are allowed). For example:
+  COMMAND='echo Hello'
+  COMMAND='aplay -D default -c 2 -f S32_LE -r 96000 /dev/zero'
+Both examples include a space or spaces. Enclose the entire command string in 
+quotation marks as shown. Environmental parameters can be used as parameters, 
+e.g.:
+  COMMAND='my_script.sh $(SHELL) $(USER)'
+Keep in mind these parameters come from the environment and machine where ever
+the command is being run, e.g. locally or remotely.
+3. The most restrictive case is when the command or script file resides locally
+but will be run remotely. In that case, spaces and/or parameters are not allowed
+as part of the command string. The command can only consist of the script file's
+path and file name, e.g.
+  COMMAND=~/script_files/my_script.sh
+
+
+Using Multiple Clients within the same system
+--------------------------------------------------------------
+A client is essentially another computer system that is separate from the one 
+where audio playback is occurring. Systems that use multiple remote clients 
+can be created. Each client is defined in turn, beginning with the "CLIENT" 
+keyword, its ROUTEs, etc. and then the next client is defined. A GStreamer 
+pipeline that simultaneously streams audio to all of the clients in the 
+system_configuration file will be launched. This makes is possible for a system
+to comprise multiple speakers and/or subwoofers. When using multiple remote 
+clients the synchrony between clients becomes important. See the section 
+"Keeping Multiple Clients Synchronized" in this document for more information 
+on that topic.  
 
 
 Using Multiple DACs within the same client
@@ -353,99 +419,12 @@ Multiple DACs can be used by declaring each as a CLIENT_SINK. Each sink runs
 independently, so playback is not guaranteed to be synchronous (this depends on
 the interface clocking, etc.). ROUTE statements for channels that should route
 to a client sink must be declared below that CLIENT_SINK and before the next
-CLIENT_SINK is declared. 
+CLIENT_SINK is declared.
 
 
-Using Multiple Clients within the same system
---------------------------------------------------------------
-Systems that use multiple remote clients can be created. Each client is 
-defined in turn, beginning with the "CLIENT" keyword, its ROUTEs, etc. and then
-the next client is defined. A GStreamer pipeline that simultaneously streams 
-audio to all of the clients in the system_configuration file will be launched.
-This makes is possible for a system to comprise multiple speakers and/or
-subwoofers. When using multiple remote clients the synchrony between clients
-becomes important. See the section "Keeping Multiple Clients Synchronized" in 
-this document for more information on that topic.  
 
 
-About the ALSA Loopback:
-------------------------------------------------------------------------------
-The Linux ALSA audio subsystem can be configured to include a "loopback" device.
-This is done by adding 'snd_aloop' to the file /etc/modules and then rebooting.
-
-The loopback has some behaviors that should be understood in order to configure 
-and use them correctly. To check if the ALSA Loopback device has been enabled, 
-type "aplay -l" at the command prompt. The output will include something like 
-the following (NOTE: there will be other ALSA devices listed in addition to 
-the loopback):
-
-**** List of PLAYBACK Hardware Devices ****
-card 0: Loopback [Loopback], device 0: Loopback PCM [Loopback PCM]
-  Subdevices: 7/8
-  Subdevice #0: subdevice #0
-  Subdevice #1: subdevice #1
-  Subdevice #2: subdevice #2
-  Subdevice #3: subdevice #3
-  Subdevice #4: subdevice #4
-  Subdevice #5: subdevice #5
-  Subdevice #6: subdevice #6
-  Subdevice #7: subdevice #7
-card 0: Loopback [Loopback], device 1: Loopback PCM [Loopback PCM]
-  Subdevices: 8/8
-  Subdevice #0: subdevice #0
-  Subdevice #1: subdevice #1
-  Subdevice #2: subdevice #2
-  Subdevice #3: subdevice #3
-  Subdevice #4: subdevice #4
-  Subdevice #5: subdevice #5
-  Subdevice #6: subdevice #6
-  Subdevice #7: subdevice #7
-
-The default loopback device comes with 8 subdevices (0-7), and each of these is
-like a pipe that can function in one "direction" or the other, that is you can
-put audio into one end of the pipe and take it out of the other. These pipes 
-are very useful for connecting audio-processing programs much like a patch-bay.
-
-The loopback is described with the following format:
-Loopback,DEV=device#,SUBDEV=subdevice#
-Each of the 8 Loopback "pipes" is enumerated (specified) using the SUBDEV field.
-Each pipe has two ends, numbered 0 and 1. These are enumerated/specified using 
-the DEV field. So, for example using the loopback shown above, to 
-connect the output of program 1 to the input of program 2 you do the following:
-PROGRAM 1: send output to card 0, device 0, subdevice 0 is written
-   hw:CARD=Loopback,DEV=0,SUBDEV=0
-PROGRAM 2: read input from card 0, device 1, subdevice 0 is written:
-   dsnoop:CARD=Loopback,DEV=1,SUBDEV=0
-Additional pipes can be created as a different subdevice. Each is independent
-of the other including the audio format, and the order that subdevices are used
-does not matter. If no subdevice is specified, subdevice 0 is used by default.
-
-If there will be more than one GSASysCon system operating at a time, the 
-dsnoop Loopback plugin should be used - it allows more than one connection to 
-read the output of a Loopback pipe. This makes it possible for several GStreamer 
-instances to run in parallel, each taking a 'copy' of the audio from the 
-loopback output while the input is fed from a single source such as an audio 
-player or PulseAudio. 
-
-It is possible to launch GSASysCon and connect a GStreamer process
-to the Loopback output before any audio has been delivered to the Loopback 
-input. If no rate and format information is used when making the initial
-connection ALSA will apply its default values. When the second connection is
-made (e.g. from a source) if it uses another format the audio will be corrupted
-or the connection will fail. To prevent this problem, the audio rate and format
-can be specified immediately after the alsasrc statement, following the 
-exclamation mark "!" to separate the two. This tells GStreamer to expect this
-audio data when opening the alsa source. Example:
-   alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! audio/x-raw,rate=96000,format=F32LE,channels=2
-
-In general a fixed rate must be used for both connections to the loopback pipe,
-and this can be chosen ahead of time. For example, PulseAudio resamples all 
-audio to a fixed rate and with a format that is specified in its configuration 
-file. Choosing an appropriate set of parameters and high quality resampling 
-ensures that audio will always be of high quality.
-
-
-Multiple Instances of GSASysCon 
+Multiple Instances of GSASysCon
 --------------------------------------------------------------
 The GStreamer pipelines launched by GSASysCon are independent of it and will
 continue to run if the systems are "ON" when you exit GSASysCon. All instances
@@ -468,6 +447,51 @@ the document "About the Global Configuration File".
 
 
 
+________________________________________________________________________________
+
+                     Resampling within GSASysCon systems
+________________________________________________________________________________
+
+It is a good practice to minimize the number of times that an audio signal 
+undergoes resampling. Unless required, no resampling takes place with the 
+Gstreamer pipeline that GSASysCon constructs. 
+
+The pipeline sample rate is first set at the system input. The input audio is 
+described using three specifiers:
+  INPUT_RATE = [audio rate in Hz]
+  INPUT_FORMAT = [Gstreamer audio format specifier]
+  INPUT_CHANNELS = [number of audio channels in the input stream]
+The audio source will be opened using the values provided by the user. If no
+values are provided, the following default values will be used:
+  INPUT_RATE = 48000
+  INPUT_FORMAT = S16LE
+  INPUT_CHANNELS = 2
+The values of these parameters describe the input audio characteristics.  
+
+Other sample rate related parameters include:
+  SINK_RATE - this parameter (when present) chooses the sample rate at which the
+  sink will be opened. When no value is provided, it takes on the value of the
+  upstream rate, either the STREAM_RATE for remote clients or the INPUT_RATE for
+  local clients
+
+  STREAM_RATE - this parameter (when present) sets the sample rate of the RTP 
+  data stream that is created to send audio to another machine over your LAN. If
+  no value is provided, the default value is the INPUT_RATE
+
+Internal resampling is possible under the following scenarios:
+  1. When streaming audio over your LAN to another machine, if the system input
+  and RTP stream rates are different resampling to the STREAM_RATE will take 
+  place before the data is RTP payloaded 
+  2. When streaming audio over your LAN, on the client when the RTP stream and 
+  client sink sample rates are different, resampling to the SINK_RATE will take
+  place prior to sending data to the client sink. DSP on the client will run at
+  the RTP stream rate
+  3. For LOCAL_PLAYBACK, when the client sink rate has been set to a different
+  rate than the SYSTEM_INPUT rate, resampling to the SINK_RATE will take place
+  just before the data is sent to the client sink. DSP will run at the rate of
+  the SYSTEM_INPUT
+
+
 
 ________________________________________________________________________________
 
@@ -488,6 +512,7 @@ the audio. The following keys can be used in the volume control interface:
 It is not necessary to press enter while in the volume control interface after
 pressing one of the other keys. Holding down the u or d key results in volume
 changes with acceleration. 
+
 
 Configuring the volume control in the system_configuration file
 --------------------------------------------------------------
@@ -536,6 +561,7 @@ The action specifier format is:
     !mute - perform all actions except mute 
     %volume - only perform volume control actions
 
+
 Customizing the volume control:
 --------------------------------------------------------------
 The appearance of the volume control is customized in the system_configuration
@@ -561,6 +587,7 @@ If the STYLE is changed to numeric, the volume control screen looks like this:
 
 
 
+
 ________________________________________________________________________________
 
                    HOW TO USE GSASysCon WITH REMOTE CLIENTS:
@@ -569,7 +596,7 @@ ________________________________________________________________________________
 
 Overview:
 --------------------------------------------------------------
-Remote clients open up new possiblities for playback. To describe how remote 
+Remote clients open up new possibilities for playback. To describe how remote 
 clients work under GSASysCon the concepts of a local SERVER and a remote CLIENT
 will be used. The SERVER is the computer that the user physically interacts 
 with, typically to play audio. GSASysCon is installed on the SERVER computer 
@@ -626,15 +653,13 @@ additional software and configuration requirements are:
     identify the IP address of the server computer
     generate an RSA key
   CLIENT:
-    install GStreamer
-    install ACDf
+    install GSASysCon
     identify the IP address of the client computer
     transfer the RSA key from Server to Client
 NOTES: 
-GSASysCon should NOT be installed on the CLIENT!
 
 Enable SSH on Each Client:
-When using Raspberry OS, SSH is emabled on the CLIENT with the command: 
+When using Raspberry OS, SSH is enabled on the CLIENT with the command: 
    sudo raspi-config nonint do_ssh 1
 or use the raspi-config utility and under Interfaces enable SSH.
 
@@ -642,21 +667,12 @@ If the client is running a Debian based OS such as Ubuntu, use apt to install
 the openssh-server package:
    sudo apt update; sudo apt -y install openssh-server 
 
-Install GStreamer On Each Client:
-If you have not yet confirmed the installation of GStreamer on the CLIENT, 
-please do so now. You may use the same procedure that is outlined in the 
-SetupGuide document to confirm and/or install the necessary GStreamer 
-components. If you wish to use DSP processing, the ACDf LADSPA plugin must be
-installed on the client. You may either copy the ADCf directory from 
-system_control/LADSPA over to the client or, when logged into the client type:
-  wget http://audio.claub.net/software/LADSPA/ACDf_v4.1.tar
-Navigate into the ACDf directory and then wxtract the tar file by typing:
-  tar -xvf ACDf_v4.1.tar
-In either case, install ACDf by performing the make and sudo make install steps
-that are outlined in the SetupGuide document. Make sure to add the LADSPA path 
-to the .profile file in the home directory on the CLIENT. This can be done by
-running the following command:
-  echo 'export LADSPA_PATH=/usr/local/lib/ladspa:/usr/lib/ladspa' | tee -a ~/.profile
+Install GSASysCon On Each Client:
+GSASysCon itself is not needed on the client, however, because Gstreamer and the
+filtering functionality via LADSPA is installed during the automated 
+installation of GSASysCon the simplest way to make sure all the required 
+components are installed is to perform the GSASysCon installation on the client
+as well. 
 
 Obtain IP addresses:
 To permit remote playback, the IP address of both the server and client are 
@@ -757,12 +773,13 @@ four pieces of information:
 
 4. client side configuration info for GStreamer's RTP de-payloader:
 
-   CLIENT_RTBIN_PARAMETERS = (rtpbin parmeters for the client)
+   CLIENT_RTBIN_PARAMETERS = (rtpbin parameters for the client)
 
 The remainder of the system_configuration file is written in the same manner as 
 when the client is a local client. The description of the routing and DSP again 
 begins with the lines:
    SINK_FORMAT = S32LE
+   SINK_RATE = 96000
    CLIENT_SINK = alsasink device='hw:CARD=...
 just like with a local client.
 
@@ -823,17 +840,25 @@ and this can be used to organize and synchronize playback based on the local
 clock of the client or other time source.
 
 GStreamer has advanced synchronization mechanisms, but all require some clock 
-source to be available on each client. One such source is the clock in the OS
-itself. The challenge is to get all system clocks running at the same rate and 
-with the same time. There is a
+source to be available on each client. One clock source is the clock in the
+OS itself. Gstreamer can send time stamp information along with the RTP stream
+and then use the local clock to schedule when samples are rendered. When there
+is a single client it the actual clock-time on the client machine is not
+important and if the client machine clock has a different time or runs at a
+different rate than the local machine these differences are easily accommodated
+by Gstreamer's synchronization mechanism. When there are multiple client
+machines, the can still work but there may be excessive drift between playback
+on each machine. To improve synchronicity, the system clocks on all machines
+both local and client alike, should be running at the same rate and with the
+same time.
 
-A standard protocol for this is called "Network Time Protocol" (NTP). NTP is a 
-framework for adjusting the clock of a computer to bring it into sync with one
-or more external "reference" clocks. There are a number of different software
-implementations of the NTP protocol, however, I prefer the app "chrony". It
-can be installed with a package manager such as "apt" from the standard
-repositories. Please see the chrony documentation for complete information on
-setup and configuration 
+A standard protocol for time synchronization is called "Network Time Protocol"
+(NTP). NTP is a framework for adjusting the clock of a computer to bring it
+into sync with one or more external "reference" clocks. There are a number of
+different software implementations of the NTP protocol, however, I prefer the
+app "chrony". It can be installed with a package manager such as "apt" from the
+standard repositories. Please see the chrony documentation for complete
+information on setup and configuration
 
 Because there is delay and jitter in the responses from the external time 
 references this influences the ability of NTP to well-synchronize the local 
@@ -841,10 +866,10 @@ clock. The more distant and poorly synchronized the external reference is, the
 greater the error that is created. Choosing a poor set of reference clocks can
 lead to errors on the order of several milliseconds, which is too high. One 
 useful strategy is to dedicate a local computer to act as a NTP timeserver, and
-find a few good quality stratum1 or stratum 2 timeservers that are physically
-near by. The next level of sophistication is to create three such local servers,
-each with a different set of external timeservers. An even higher level of 
-sophistication is to use GPS PPS as the time source for your local timeservers, 
+find a few good quality stratum 1 or 2 timeservers that are physically near by.
+The next level of sophistication is to create three such local servers, each
+with a different set of external timeservers. An even higher level of
+sophistication is to use GPS PPS as the time source for your local timeservers,
 as time from a GPS source has very high precision and is considered to be at
 the stratum 1 level. By having a timeserver on your LAN, the local systems (the
 server and client) can all be well-synchronized to a single time and jitter
@@ -853,7 +878,7 @@ will be reduced to the minimum.
 All clients and the server should use chrony to discipline their clocks on 
 intervals between every 32 seconds (maxpoll 5) and 128 seconds (maxpoll 7). 
 Using this approach, and with public NTP servers, I am able to get the clocks 
-on the server and all clients to be within 0.5 milliseconds or better. With GPS 
+on the server and all clients to be within 0.5 milliseconds or better. With GPS
 based timeservers this falls to under 0.1 milliseconds. This is close enough 
 synchronization that separate clients from left and right speaker give the 
 proper presentation of the soundstage image without any wander. I prefer the 
@@ -864,8 +889,8 @@ TIP: On low-power ARM systems, CPU frequency scaling and WiFi power saving
 features can hinder NTP. It is recommended that the system is run at a fixed 
 CPU frequency. 
 
-When very tight synchrony is desired, the SYNCHRONIZED_PLAYBACK parameter should
-be set to "true" in the system_configuration file: 
+When a very tight synchrony is desired, the SYNCHRONIZED_PLAYBACK parameter
+should be set to "true" in the system_configuration file:
    SYNCHRONIZED_PLAYBACK = true
 Because it is a parameter specific to a client, the SYNCHRONIZED_PLAYBACK 
 parameter should appear AFTER the CLIENT and ACCESS statements for each
@@ -882,48 +907,66 @@ time by up to the amount of the LATENCY parameter declared as part of the
 CLIENT_RTBIN_PARAMETERS string. 
 
 
-Triggering Other software while launching/terminating a GSASysCon remote system
+Retrieving the Status of Remote Clients
 --------------------------------------------------------------
-When the client is a remote client, the behavior of the "LOCAL_SCRIPT..." 
-keywords (previously explained) is different. In this case the script file 
-resides on the server filesystem, but will be executed on the remote client 
-over an SSH connection. This can result in some confusion for variables, and 
-naming, so for remote clients there are four additional keywords:    
-   OTHER_COMMAND_BEFORE_LAUNCH
-   OTHER_COMMAND_AFTER_LAUNCH
-   OTHER_COMMAND_BEFORE_TERMINATE
-   OTHER_COMMAND_AFTER_TERMINATE
-These refer to commands or script files that reside on the client, and that 
-will also be executed on the client. In this case the filepath-name to the
-script is the filepath-name on the client and not on the server.
+The status for any remote clients in a system can be displayed using the user 
+option 'c' while operating GSASysCon in either the run-continuous or run-once 
+mode. Choosing this option will refresh the display with a one-time client 
+status list for the active system.  
+
+In run-continuous mode the status display will look like this:
+
+PLAYBACK ENDPOINTS:
+   #     RUN STATUS        SYSTEM NAME
+----------------------------------------------------------
+   1   3hours,23mins     kitchen
+   2   9hours,19mins     stube
+   3        OFF          wohnzimmer
+   4        OFF          z Pi 5
+----------------------------------------------------------
+
+After pressing c the user is asked to choose the playback system by system 
+number. Once the system number is chosen the display switches to a list of 
+clients in that system and their status, like this:
+
+System name: kitchen
+CLIENT IP ADDRESS:     STATUS:     GSTREAMER PIPELINE:
+----------------------------------------------------------
+  1    192.168.1.123   REACHABLE   RUNNING
+
+Pressing 'c' again (or any key?) returns to the regular display
+There could also be a timeout time to return to the regular display
 
 
 
 
 ________________________________________________________________________________
 
-               The Two Parts of the System Configuration File
+              The Two Sections of the System Configuration File
 ________________________________________________________________________________
 
-The system configuration file consists of two main parts. The first part is 
-where system-wide parameters are declared, and clients and routes are declared
-in the second part. This is further explained below.
+The system configuration file consists of two main parts. System-wide
+parameters are declared first and client related statements (for both local
+playback and remote clients) such as routes and DSP processing appear in the
+second part. This is further explained below.
 
 Part #1 - System and System-Wide Parameters and Declarations:
 --------------------------------------------------------------
 In the first section, system or system-wide parameters are declared. 
-System parametes include:
+System parameters include:
     SYSTEM_INPUT
     SERVER_RTBIN_PARAMETERS
     VOLUME
-    GAIN_ADJUST_DB
-    SERVER_CHANNEL_MIXING
     VOLUME_CONTROL
     VOLUME_CONTROL_STYLE
     VOLUME_CONTROL_TIMEOUT
+    SERVER_CHANNEL_MIXING
+    DEBUG_LEVEL
     DEFINE_VARIABLE
     DEFINE_MULTILINE_VARIABLE
     END_MULTILINE_VARIABLE
+    EXTERNAL_COMMAND for scripts/commands that execute on the local machine
+
 System-wide parameters are client parameters that are declared in this section
 so that their values will be "global" to all system clients without having to
 declare them separately for each client.
@@ -931,6 +974,7 @@ declare them separately for each client.
     STREAM_BITS
     STREAM_RATE
     SINK_FORMAT
+    SINK_RATE
     PATH
     RESAMPLER_QUALITY
 
@@ -954,6 +998,7 @@ declaration. These include:
     STREAM_BITS
     STREAM_RATE
     SINK_FORMAT
+    SINK_RATE
     PATH
     RESAMPLER_QUALITY
 All of the remaining client parameters do not carry over from a previous client.
@@ -964,14 +1009,7 @@ for each new client:
     DELAY
     any GStreamer element or DSP filter
     SYNCHRONIZED_PLAYBACK
-    OTHER_COMMAND_BEFORE_LAUNCH
-    OTHER_COMMAND_AFTER_LAUNCH
-    LOCAL_SCRIPT_BEFORE_LAUNCH
-    LOCAL_SCRIPT_AFTER_LAUNCH
-    OTHER_COMMAND_BEFORE_TERMINATE
-    OTHER_COMMAND_AFTER_TERMINATE
-    LOCAL_SCRIPT_BEFORE_TERMINATE
-    LOCAL_SCRIPT_AFTER_TERMINATE
+    EXTERNAL_COMMAND for scripts/commands that execute on the client machine
 
 The declaration for a client ends either when the end-of-file is encountered or
 when the next CLIENT keyword is found.
@@ -981,11 +1019,12 @@ using the CLIENT keyword again:
 CLIENT = [LOCAL_CLIENT | IP address of client ]
 [ACCESS = SSH access string ] #this is used for remote clients only
 
+
 Declaring Multiple Clients and Multiple Sinks Within A System:
 --------------------------------------------------------------
 If a client uses more than one sink (for example multiple stereo DACs), these
 may be declared in any order within the client as long as they have been 
-declared before any route statement that references them. For an exmaple using
+declared before any route statement that references them. For an example using
 three client sinks, they could be declared prior to any route statements:
     CLIENT_SINK = first sink (sink #0) declared here
     CLIENT_SINK = second sink (sink #1) declared here
@@ -1004,17 +1043,17 @@ And then later used by routes as shown below:
 Another example of how to declare a client with three sinks is to declare each
 sink just before the routes that use it:
 #This time we declare the sink and then its routes immediately below that:
-    CLIENT_SINK = first sink declared here
+    CLIENT_SINK = the first sink declared here
     Some sink specific parameter could go here...
     ROUTE=0,0,0; ROUTE=1,0,1
       route elements go here...
 #Same here for second sink...
-    CLIENT_SINK = second sink declared here
+    CLIENT_SINK = the second sink declared here
     New sink specific parameters go here, if any...
     ROUTE=0,1,0; ROUTE=1,1,1
       route elements go here...
 #Same here for third sink...
-    CLIENT_SINK = and even a third sink is declared
+    CLIENT_SINK = the third sink is declared here
     ROUTE=0,2,0; ROUTE=1,2,1
       route elements go here...
       
@@ -1022,3 +1061,336 @@ Input channels always refer to the channels coming from the server, no matter
 which client or client sink is the current one. Keep in mind that a system can 
 be made up of a mix of local and remote clients. The only difference is in the 
 CLIENT and ACCESS statements for each client that makes up the system. 
+
+
+
+________________________________________________________________________________
+
+          Error Handling and Debugging with GSASysCon and GStreamer
+________________________________________________________________________________
+
+
+Where Do Errors Come From and Where Are They Reported?
+--------------------------------------------------------------
+There are two sources for errors and debug output: the GSASysCon program and the 
+Gstreamer pipelines that it launches.
+
+GSASysCon Related Errors:
+- - - - - - - - - - - - - 
+GSASysCon errors are those that are typically produced when GSASysCon is
+processing the system_configuration file or performing other tasks in 
+preparation for launching the GStreamer pipeline. For example, an incorrect
+syntax or unknown/misspelled keyword, an incorrect value for a parameter, or
+other input error might be typical of these errors. These GSASysCon errors are
+logged in the logfile that is written in the directory 
+  system_control/log. 
+The messages in this logfile are also written to the screen when the user has
+enabled system messages in the run-continuous mode. This is done by pressing the
+"M" (capitol letter) key. When system messages are enabled, pressing the "M" key
+again disables this feature. You can also enable system messages by default via
+the config file by adding the a line containing the text:
+  SHOW_SYSTEM_MESSAGES
+The system messages include info about when systems were launched or terminated,
+or other mundane system operations. The log file is regularly truncated to a 
+user-specified not-to-exceed number of lines. This can be adjusted by providing
+in the config file the line:
+  LOG_MAX_LINES = N 
+for a limit of N lines. The default is 100 lines.
+
+To check for these errors, open the log file and read it.
+
+GStreamer Pipeline Errors:
+- - - - - - - - - - - - - 
+The other source of error information is the Gstreamer pipeline that is run by
+GSASysCon to carry out all audio tasks. Error output is produced by Gstreamer
+only when GSASysCon is operating in debug-run mode. When operating GSASysCon in
+the run-continuous mode, entering "D" (capital letter) enables this mode. When
+the Gstreamer pipeline is launched, the stdout and errout are redirected to 
+files that the user can inspect later. When there is a system client or clients
+the Gstreamer pipeline on each client will also produce these files. 
+
+
+How to Generate and Review the Error/Debugging Output Files
+--------------------------------------------------------------
+Tp Produce the Error Files, first enable the debug mode (pressing "D"). Next,
+attempt to launch the system. Finally, if the system is still running, terminate
+it. Exit GSASysCon (press x) and then review the contents of the debug files.
+This can provide helpful information about what might be causing the problem. 
+It is generally not advised to keep the system running in debug-run mode because
+the amount of output can become quite large over time, especially when the 
+system includes streaming clients.
+
+FilePath and Filenames for Error Files:
+- - - - - - - - - - - - - - - - - - - - 
+The default location for the debug output files is the directory 
+  system_control/error_reports
+The user can change this path to another one by setting this parameter: 
+  DEBUG_INFO_PATH = filepath 
+in the system_configuration file (global) or, on a system-only basis, in the 
+system parameter section of the system configuration file. This is not typically
+advised except under unusual circumstances.
+
+Output is captured from both Gstreamer's stdout and errorout filehandles. These
+files are assigned .out and .err extentions, respectively. In the case of local 
+playback (a LOCAL_CLIENT) there is only the Gstreamer pipeline running on the 
+local machine. The output files from this instance of Gstreamer include LOCAL as
+part of the filename. When the system includes one or more remote clients, the 
+filename will instead have the word CLIENT as part of the filename.
+
+The filename syntax is:
+SYS[system_number].LOCAL|CLIENT[client_number].gstreamer.err|out 
+
+Some examples:     
+SYS1.LOCAL.gstreamer.err is the local error output from system 1.
+SYS1.LOCAL.gstreamer.out is the local stdout output from system 1.
+SYS2.CLIENT1.gstreamer.err is the error output produced by the Gstreamer 
+instance running on client 1 of system 2.
+SYS3.CLIENT2.gstreamer.out is the stdout output produced by the Gstreamer 
+instance running on client 2 of system 3.
+
+This file naming system allows all the different possibly output files for all
+the different systems to remain separate and distinct. They will remain in the
+error file directory on the local machine until they are deleted or over-
+written.
+
+
+
+Examples of Common Errors:
+- - - - - - - - - - - - - 
+Some examples of errors that could be produced via GStreamer include the 
+following. You specify an audio device but make a mistake typing the name. For
+example, your audio device is called Audio_DAC but you accidentally type it as
+Audio_CAD as part of the device name. GSASysCon does not perform a check to see
+if this device exists, but when Gstreamer tries to launch the pipeline it finds
+that Audio_CAD does not correspond to an ALSA device and throws an error. 
+
+Another common error occurs when you try to open an ALSA device with the 
+incorrect number of channels or an unsupported audio format. Sometimes even the 
+GStreamer error output is not helpful, and only says "device not-negotiated". In
+that case, check that you are using the correct sort of audio data for that 
+device. It can be helpful to use ALSAINFO to investigate further. 
+
+Another possible error occurs when you use a line in the system configuration 
+file that is part of a ROUTE but that cannot be processed by GSASysCon. For 
+example, you insert a comment but forget to begin it with the "#" comment 
+character. Because the user can insert native Gstreamer elements in the ROUTE, 
+GSASysCon does not check such lines or flag them as invalid. Instead these 
+errors are discovered by Gstreamer when it attempts to run the pipeline and 
+encouters an unknown word or words that does not correspond to any GStreamer 
+element. This type of error is clearly reported as an error in the err output 
+file by Gstreamer and it is easy to track down when you can examine the error 
+file contents. 
+
+
+Setting the Level of Debug Information Provided by Gstreamer  
+--------------------------------------------------------------
+Gstreamer makes it possible to control the level of debug information that it
+produces when it finds an error. The user can set a custom level by adding the 
+following parameter to the system configuration file :
+  DEBUG_LEVEL = N
+where N is an integer between 0 (no output) and 6. The default value of this
+parameter when not changed by the user is 1. This is usually sufficient to 
+produce useful error information. Level 6 (LOG level) will show any and all 
+information that is usually required for debugging purposes.
+ 
+Debug Level Value and Meaning in Gstreamer:
+Level   Meaning
+  0     DO NOT REPORT DEBUG INFO
+  1     ERROR
+  2     WARNING
+  3     FIXME
+  4     INFO
+  5     DEBUG
+  6     LOG (this is the highest 'normal' debug level)
+  
+
+How to Find Error Messages Within the Debug Output Files
+--------------------------------------------------------------
+Often the amount of debug output can be overwhelming, especially when the level
+is set to higher values. In this case, filtering the file to find certain key
+words can quickly identify the error withing all of the other messages that
+Gstreamer produces. For this I like to send the file to the grep command and
+search for the terms WARNING and ERROR like this:
+  cat gstreamer_output.err | grep WARNING
+or 
+  cat gstreamer_output.txt | grep ERROR
+The -e switch allows for multiple terms, so you could also run:
+  cat gstreamer_output.err | grep -e WARNING -e ERROR
+The search terms WARNING and ERROR will be highlighted in the output from grep.
+This is a very useful way to quickly identify the source of the error, as much
+as is possibly via the Gstreamer debug output.
+
+
+Discovering Gstreamer Element Properties using gst-inspect-1.0
+--------------------------------------------------------------
+If you are trying to debug a problem it can be informative to list all of the 
+properties for a particular Gstreamer element that is generating an error, for
+example alsasink or pulsesrc. Because Gstreamer is constantly undergoing 
+revisions and improvements that can result in new or changed element properties,
+being able to discover the valid properties for the current version of 
+a particular element is very useful. 
+
+There is a nice Gstreamer utility for this exact purpose called gst-inspect-1.0.
+You use it with the following syntax:
+  gst-inspect-1.0 name
+where name can be an entire class of elements (called a plugin) such as "alsa"
+or a specific Gstreamer element name such as alsasrc. For example when invoked
+to inspect the plugin "alsa" you get the following output:
+
+gst-inspect-1.0 alsa
+Plugin Details:
+  Name                     alsa
+  Description              ALSA plugin library
+  Filename                 /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstalsa.so
+  Version                  1.26.6
+  License                  LGPL
+  Source module            gst-plugins-base
+  Documentation            https://gstreamer.freedesktop.org/documentation/alsa/
+  Source release date      2025-09-14
+  Binary package           GStreamer Base Plugins (Ubuntu)
+  Origin URL               https://launchpad.net/ubuntu/+source/gst-plugins-base1.0
+
+  alsadeviceprovider: ALSA Device Provider
+  alsamidisrc: AlsaMidi Source
+  alsasink: Audio sink (ALSA)
+  alsasrc: Audio source (ALSA)
+
+  4 features:
+  +-- 3 elements
+  +-- 1 device providers
+
+The output shows that there are several alsa related features. When gst-inspect
+is used to produce the complete information about one of these, the output is a
+long list of capabilities and properties that is too long to replicate here but
+(for example with alsasink) includes all the valid values for format, rate, 
+channel count, etc.. The properties can tell you a lot about what the element 
+can do. 
+
+When you do not know what sort of element you might want to learn about, you 
+can go to the official Gstreamer online documentation here, sorted by plugin:
+https://gstreamer.freedesktop.org/documentation/plugins_doc.html
+This will let you search through and become familiar with all of the various 
+features and elements. Keep in mind that most of them do not apply to audio 
+processing. You should always follow the local documentation provided via 
+gst-inspect-1.0 instead of the online version, because the online version may 
+not apply to your particular version of Gstreamer.
+
+Also, the online documentation for the gst-inspect tool itself is quite useful 
+and has a good example of the output it will produce:
+https://gstreamer.freedesktop.org/documentation/tools/gst-inspect.html
+
+
+
+________________________________________________________________________________
+
+
+     Obtaining the Gstreamer Pipeline Command String Produced by GSASysCon
+
+________________________________________________________________________________
+
+When running GSASysCon in either the debug-run or debug-no-run modes, the output
+to the screen will include the Gstreamer pipeline(s) both the local one and any
+client pipelines if there are remote clients in the system. This is because it
+can be useful to sometimes inspect the Gstreamer command string directly to 
+look for obvious error like nonsensical text in place of an element. The user
+can copy the text and paste it into another application like a text editor and
+then search for terms, etc. in order to do some debugging.
+
+Below is an example of this sort of output for a system with one remote client.
+The output begins with GSASysCon's run-continuous status screen, showing 
+several different systems. Since the screen clearing procedure has been turned
+off and some additional output enables, you now can see all of it. Initially
+all systems are OFF. The user presses "1" to turn on system 1 and begin the
+debug output. GSASysCon was put into debug no run mode by pressing "d" and so
+the system will not actually run, however, the GSASysCon code will run up to the 
+point where the Gstreamer pipeline WOULD have been run and then will break out
+and return to the status screen. You can see that in the following output:
+
+===========================  begin example output =============================
+ 
+PLAYBACK ENDPOINTS:
+   #       STATUS        SYSTEM NAME
+----------------------------------------------------------
+   1        OFF          kitchen
+   2        OFF          stube
+   3        OFF          wohnzimmer
+   4        OFF          z Pi 5
+----------------------------------------------------------
+Enter a system number to toggle it ON/OFF, x to exit
+
+SYSTEM MESSAGES:
+
+ DEBUG NO_RUN mode has been enabled. Press d or D to disable it.
+
+1  <--- USER INPUT, TO RUN SYSTEM #1
+
+
+
+# GST_SERVER_CODE in launch_server_pipeline
+#  rtpbin name=server_rtpbin ntp-time-source=ntp ntp-sync=true  
+alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! audio/x-raw,
+rate=96000,format=F32LE,channels=2 ! queue ! audioconvert ! audio/x-raw,
+format=F32LE ! deinterleave name=input    audiointerleave name=
+client0_stream latency=100000000 ! audioconvert ! audioresample quality=10 ! 
+audio/x-raw,rate=44100,format=S16LE ! audioconvert ! rtpL16pay ! 
+server_rtpbin.send_rtp_sink_0 server_rtpbin.send_rtp_src_0 ! udpsink host=
+192.168.1.205 port=32768  server_rtpbin.send_rtcp_src_0 ! udpsink host=
+192.168.1.205 port=32769 sync=false async=false  udpsrc port=32768 ! 
+input.src_0 ! queue ! client0_stream.sink_0   input.src_1 ! queue ! 
+client0_stream.sink_1
+
+
+generating server-side gstreamer pipeline. Pipeline execution disabled...
+
+launching gstreamer pipeline on client #1...
+
+
+# GST_ARGS in function launch_system_clients, for CLIENT 0 at 192.168.1.205
+# rtpbin name=client_rtpbin ntp-time-source=ntp ntp-sync=true latency=95 
+buffer-mode=synced  udpsrc port=32768 caps='application/x-rtp, media=
+(string)audio, clock-rate=(int)44100, encoding-name=(string)L16, channels=
+(int)2, payload=(int)96' ! client_rtpbin.recv_rtp_sink_0  client_rtpbin. !  
+rtpL16depay !  audioconvert ! audio/x-raw,format=F32LE !  deinterleave name=
+input  udpsrc port=32769 ! client_rtpbin.recv_rtcp_sink_0  client_rtpbin.
+send_rtcp_src_0 ! udpsink host=192.168.1.200 port=32768 sync=false async=false     
+audiointerleave name=output0 latency=100000000 ! alsasink device=hw:2,0 
+sync=false        input.src_0 ! volume volume=0.5 ! audioconvert ! 
+'audio/x-raw,format=S16LE,channel-mask=(bitmask)0x1' ! output0.sink_0     
+input.src_1 ! volume volume=0.5 ! audioconvert ! 'audio/x-raw,format=S16LE,
+channel-mask=(bitmask)0x2' ! output0.sink_1
+
+
+
+PLAYBACK ENDPOINTS:
+   #       STATUS        SYSTEM NAME
+----------------------------------------------------------
+   1        OFF          kitchen
+   2        OFF          stube
+   3        OFF          wohnzimmer
+   4        OFF          z Pi 5
+----------------------------------------------------------
+Enter a system number to toggle it ON/OFF, x to exit
+
+SYSTEM MESSAGES:
+
+ A request to LAUNCH kitchen was received.
+ Client 192.168.1.205 was launched sucessfully
+ 
+x  <--- USER INPUT, TO EXIT GSASYSCON
+
+============================  end example output ===============================
+
+I have indicated where the user entered values to take some action. As you can
+see, the Gstreamer pipeline command string is a bit complicated, and this 
+system does not use any DSP processing! GSASysCon is constructing the pipeline
+command string in the background from a more user-friendly input format. The two
+command strings could be copied from the output and then launched from the 
+command line independent of GSASysCon. In this way, GSASSysCon could be used as
+a development tool for a Gstreamer pipeline that is then run in some other
+fashion with a different mechanism for triggering the code. GSASysCon only makes
+it easier for the user, for example with remote clients it logs into the remote
+machine and launches the pipeline automatically for the user. The missing part
+of the command that one would run from the terminal to launch the pipeline is
+the Gstreamer command line command: gst-launch-1.0 plus any command line
+switches that the user wants to add to that command. What is shown above are the
+pipeline elements that follow.

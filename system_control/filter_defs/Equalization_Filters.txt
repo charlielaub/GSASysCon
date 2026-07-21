@@ -20,13 +20,13 @@
 
 
 # EQ FILTER LIST -------------------------------------------------
-1st-Order-Low-Shelf
-1st-Order-High-Shelf
-2nd-Order-Low-Shelf
-2nd-Order-High-Shelf
-Parametric-EQ-Filter
-Linkwitz-Transform
-Constant-Slope-EQ
+#   1st-Order-Low-Shelf
+#   1st-Order-High-Shelf
+#   2nd-Order-Low-Shelf
+#   2nd-Order-High-Shelf
+#   Parametric-EQ-Filter
+#   Linkwitz-Transform
+#   Constant-Slope-EQ
 # END EQ FILTER LIST ---------------------------------------------
 
 

@@ -1,0 +1,649 @@
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#      *** GSASysCon: the GStreamer Streaming Audio System Controller ***     #
+#      A bash-script-based streaming audio system controller for GStreamer    #
+#                                                                             #
+#                       Written by: Charlie Laub, 2025                        #
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+
+                      GSASysCon - Audio Input and Output
+
+CONTENTS:
+Introduction
+Specifying the Input Format, Sample Rate, and Channel Count
+Sources and Sinks for Audio
+   Obtaining Information about Pipewire Sources and Sinks
+   Enabling and Disabling Pipewire-Pulse Audio Sources and Sinks
+   ALSA Sources and Sinks
+      Using ALSAINFO.sh to get Information about Audio I/O Devices
+      Using aplay and arecord to Get Device Information
+         Using the arecord Program
+         Using the aplay Program
+      About the ALSA Loopback
+Common Audio I/O Situations with Some Examples
+
+
+________________________________________________________________________________
+
+                          Sources and Sinks for Audio
+________________________________________________________________________________
+
+
+Introduction
+--------------------------------------------------------------
+GSASysCon builds and launches Gstreamer audio pipelines. The start of each 
+pipeline is the "source" and is given by the SYSTEM_INPUT statement. Gstreamer 
+pipelines terminate at one ore more audio sinks. These are given via one or more
+CLIENT_SINK statements in the system_configuration file. 
+
+Examples of sources and sinks for audio streams include:
+  Linux ALSA : alsasrc, alsasink
+  Linux Pulse Audio/Pipewire : pulsesrc, pulsesink
+  Windows Audio: wasapisrc, wasapi2src, wasapisink, wasapi2sink
+Native Gstreamer elements can also be used for sources and sinks, such
+as audiotestsrc or fakesink, both of which are used in the "first test" system
+that is installed with GSASysCon.
+
+This document aims to assist the user in successfully choosing and configuring 
+audio sources and sinks within GSASysCon. It starts with sections about how to 
+set various parameters for the source, then reviews each type of source that is
+available under Linux OSes, and finally provides a few examples of common audio
+I/O configurations. For information about how to write the SYSTEM_INPUT and 
+CLIENT_SINK statements and how the function in the system_configuration file, 
+please see the help docs GSASysCon_Basic_Topics and GSASysCon_Advanced_Topics.
+
+
+
+
+Specifying the Input Format, Sample Rate, and Channel Count 
+--------------------------------------------------------------
+GSASysCon must know the audio property values that should be used when opening a 
+source. The three properties of the audio stream are:
+  INPUT_RATE
+  INPUT_FORMAT
+  INPUT_CHANNELS
+The audio source will be opened using the values provided by the user. If no
+values are provided, the following default values will be used:
+  INPUT_RATE = 48000
+  INPUT_FORMAT = S16LE
+  INPUT_CHANNELS = 2
+These correspond to the default parameters used by ALSA. To change how the input
+device is opened the user can set these properties to new values. The parameters
+and any new values should be included before the SYSTEM_INPUT statement, either
+in the GSASysCon configuration file or as system parameters in the system 
+configuration file. 
+
+Gstreamer pipelines that are created using GSASysCon cannot change their audio 
+properties once they have been launched - they run at a fixed sample rate and 
+audio format. The audio source must be opened with the correct input audio 
+parameters or the attempt will fail and the pipeline will not run. The sample 
+rate can be any supported sample rate. Upstream resampling is recommended so
+that the audio rate and format passing into the Gstreamer pipeline does not 
+change. Note that the audio format is given using Gstreamer's style that is 
+slightly different than the ALSA format style.
+
+If resampling takes place at the sink end of the pipeline, Gstreamer uses its 
+built-in resampler that has adjustable quality versus computational overhead. 
+The quality parameter for resampling within GSASysCon systems is set using the
+RESAMPLER_QUALITY parameter. The default value is 10, the highest available 
+quality. This can be changed by listing the new value for the parameter before 
+the SYSTEM_INPUT statement in the GSASysCon configuration file, or as either a
+client or system parameter in the system configuration file.
+
+For more information about internal resampling, see the section titled 
+"Resampling within GSASysCon systems" in the help document "GSASysCon Advanced
+Topics.txt".
+
+
+
+Obtaining Information about Pipewire Sources and Sinks
+--------------------------------------------------------------
+Pipewire currently serves as the high level audio system under many Linux OSes. 
+GUI applications send their audio to Pipewire, which can resample and change
+the format, before sending it to lower level audio subsystems like ALSA. At 
+this time in the development and deployment of Pipewire, the same audio device
+names are obtained from Pulse Audio using pactl and from Pipewire via 
+configuration files. It is recommended that the user interface with Pipewire 
+via pipewire-pulse. From the GSASysCon and Gstreamer perspective you get and 
+send audio just as if Pipewire was not present and Pulse Audio was still the 
+audio server for the OS. This section will be updated if/when the Pipewire 
+interface changes and PA is no longer used.
+
+When audio is playing, there is a very informative real-time monitoring tool
+called pw-top. It can be used to view Pipewire (and pipewire-pulse) processes
+and devices, the rate and format they are running at, as well as other 
+information. This can be started in a terminal window by typing:
+  pw-top
+Because the output is real-time it captures changes as they happen. For complete
+info on the output fields and their meaning the user should refer to the online
+documentation for pw-top that is available via the main Pipewire man page: 
+  https://docs.pipewire.org/index.html
+under the "Programs" section.
+
+For some useful information regarding sample rate and resampling for a Gstreamer
+pipeline operating with its input and/or output connected to Pipewire, please
+see the document "Gstreamer and Pipewire under Ubuntu.txt" that is included
+with GSASysCon in the docs folder.
+
+
+
+
+
+Obtaining Information about Pulse Audio Sources and Sinks
+--------------------------------------------------------------
+Pulse audio was formerly the higher level audio server for Linux OSes. It was 
+to this service that applications like a browser or audio player sent audio. 
+Pulse Audio has/had its own configuration options but in the end it just sends
+the audio on to ALSA. Under current OSes, Pulse Audio is still present as part 
+of Pipewire and many of the properties that are listed are actually Pipewire 
+properties for the same device. It is often best to try and work with Pipewire's
+Pulse Audio interface (e.g. pipewire-pulse) instead of trying to send and 
+receive audio from Pipewire directly.
+
+In the GSASysCon system configuration file, the Gstreamer element pulsesrc or 
+pulsesink is used to get or send audio to the Pulse Audio subsystem. The names 
+for different cards and audio devices under Pulse Audio will in general be 
+different from ALSA but may include part of the card name, for example:
+  alsa_output.pci-0000_04_00.6.HiFi__Line2__sink 
+
+To get a list of PulseAudio input devices, run this command:
+  pactl list sources short
+for a list of the names only, or:
+  pactl list sources
+for a list of the source, source number, and all the source properties. When
+there are multiple sinks present this can produce quite a lot of output.
+
+Similarly, to get a list of PulseAudio output devices, run this command:
+  pactl list sinks short
+for a list of the names only, or:
+  pactl list sinks
+for a list of the sink number, and all the sink properties. When
+there are multiple sources present this can produce quite a lot of output.
+
+
+
+
+Enabling and Disabling Pipewire-Pulse Audio Sources and Sinks
+--------------------------------------------------------------
+There is a very useful GUI software app that can perform some configuration 
+tasks related to Pulse Audio (e.g. pipewire-pulse). The app is called 
+pavucontrol and can be installed via apt using the commands:
+  sudo apt update
+  sudo apt -y install pavucontrol
+The pavucontrol app allows the user to set volume levels, enable or disable the
+system's audio devices, and to choose/set the mode of operation for each device
+e.g. how many audio channels are used, etc. Since this app is easier to use
+compared to editing configuration files, it is strong suggested that the user
+installs it.
+
+When the user would like to take audio from the GUI applications (such as the
+audio from your browser or a file player), send it through a GSASysCon system, 
+and render it via some audio device (e.g. DAC) then pavucontrol should be used
+in the following manner:
+1. Open pavucontrol and navigate to the tab "Configuration"
+2. For each audio device listed, set the mode to "OFF"
+3. A new device will appear called "null sink"
+After following these steps, the audio from any GUI application will send its
+audio to the null sink. The GUI audio volume control for the system will now
+control the null sink volume as well. This allows the user to easily change the
+global playback volume using a GUI slider or keyboard controls. GSASysCon has
+its own text based volume control and this can also be set to adjust the null
+sink volume level. 
+
+To use the null-sink as the source for a GSASysCon playback system, you specify
+it like this:
+  SYSTEM_INPUT = pulsesrc device=null_sink.monitor
+
+If you do not wish to install and use pavucontrol, it is also possible to 
+disable Pipewire-pulse sources and sinks from the command line. To disable a 
+sound card first get the card number from the list of cards by running the 
+command:
+   pactl list short cards
+Example output is:
+   0	alsa_card.usb-0c76_USB_PnP_Audio_Device-00	module-alsa-card.c
+   1	alsa_card.pci-0000_00_1f.3-platform-skl_hda_dsp_generic	module-alsa-card.c
+The first column is the card number under Pipewire. To disable a specific card,
+use the command:
+   pactl set-card-profile [card_number] off
+Replace [card_number] above with the actual card number, e.g.:
+   pactl set-card-profile 1 off
+Repeat this for all cards to make pulse-audio create the default null-sink.
+
+
+
+
+Obtaining Information about ALSA Sources and Sinks
+--------------------------------------------------------------
+ALSA is the low level audio subsystem of Linux that interfaces directly with
+the sound card(s) present in the system such as onboard audio CODECs or USB
+audio interfaces. A system could use both ALSA sinks and sources to create a 
+software DSP processor, where audio is taken from one of the inputs on the audio
+card, processed using some DSP filtering, and then output via the outputs on the 
+same audio card.
+
+To obtain a list of audio cards that can play audio (e.g. be the output sink for
+the Gstreamer pipeline) or record audio (be an input for the Gstreamer pipeline)
+you can run commands in a terminal such as aplay and arecord. These are briefly 
+covered below, however, the ALSAINFO app is a better source of this information.
+
+
+Using ALSAINFO.sh to get Information about Audio I/O Devices
+
+There is a much better way to obtain information for ALSA input and output 
+devices that is bundled with GSASysCon as a separate shell script. This script
+is called ALSAINFO.sh and is located in the scripts directory. ALSAINFO has the
+advantage that it provides information about how to interface with GStreamer
+rather than ALSA. Since GSASysCon uses Gstreamer pipelines and Gstreamer 
+elements are used for specifying input and output, ALSAINFO is a much better
+source of the necessary info compared to ALSA programs like aplay and arecord.
+
+There is a separate help document dedicated to ALSAINFO that you can find in the
+docs directory and is called "Using the ALSAINFO app". 
+
+
+Using aplay and arecord to Get Device Information
+
+ALSA includes the aplay program for audio playback and the arecord program for
+audio recording. These can also be used as a tool to investigate the audio
+capabilities for an audio card.
+
+Using the arecord Program
+
+To list the audio cards that are capable of recording audio e.g. that are 
+sources of audio, run the command:
+  arecord -l
+or
+  arecord -L
+The first option (with the lower case L character) gives a list of the cards
+present, including their name and ALSA card number. You use the card number to
+refer to the card in this format:
+MODE:card_number,device_number
+Typically the device number is zero (almost always!) and you usually want to 
+use the hardware mode to open the card, which is abbreviated "hw". The only 
+information that remains to be found is the card number, which starts from zero
+and is at maximum equal to the number of audio cards in the system. In this
+example let's assume the card is number 3, then to refer to it for input or
+output, we have:
+hw:3,0
+The only problem with using this type of card reference is that as cards are
+added or removed from the computer (e.g. USB cards) the number can change. This
+is where a more descriptive card reference is useful, and you can get this via
+the -L option, as shown in the second arecord command, above. When arecord is
+used with the uppercase L it returns all the different modes that the card can 
+operate in, using the card name instead of the card number. Assuming we want to
+use the same card that is card #3, and we find that the card name is "DAC" we
+can instead of hw:3,0 write this:
+hw:CARD=DAC,DEV=0
+When you use the -L option, you should find this mode listed for the card. The
+result will be the same as when you write hw:3,0 except if the card number
+changes later on, hw:CARD=DAC,DEV=0 will still point to the same card but hw:3,0
+will now refer to some other audio card in the system.  
+
+Using the aplay Program
+
+Similarly, we can obtain a list of cards that can output audio using the
+commands:
+  aplay -l
+or
+  aplay -L
+Just like with arecord, the first option (with the lower case L character) 
+produces a list of the cards present, including their name and ALSA card number.
+The second option with the uppercase L lists all the different modes that the 
+card can operate in. Again, the only mode of interest will be hardware modes. 
+These will open with a given audio rate and format and will not change.
+
+You should run the arecord and aplay commands in a command terminal on your own
+computer to see what audio devices that are present.
+
+Within the GSASysCon configuration file, the Gstreamer elements alsasrc and 
+alsasink are used to connect the pipeline to these ALSA sources and sinks. The 
+device (the ALSA card) must be identified as part of the element, for example:
+  SYSTEM_INPUT = alsasrc device=hw:1,0
+or
+  SYSTEM_INPUT = alsasrc device=hw:CARD=USB,DEV=0
+In the first example, the device hw:1,0 is specified by card number that can
+be obtained from the aplay -l command. In the second example, the device is
+specified by card name. The string hw:CARD=USB,DEV=0 is taken from the output
+of the aplay -L command. Using a card name is preferable, because the number
+of the card can change from reboot to reboot under ALSA.
+
+
+About the ALSA Loopback
+
+The Linux ALSA audio subsystem can be configured to include a "loopback" device.
+This is done by adding 'snd_aloop' to the file /etc/modules and then rebooting.
+
+The loopback has some behaviors that should be understood in order to configure 
+and use them correctly. To check if the ALSA Loopback device has been enabled, 
+type "aplay -l" at the command prompt. The output will include something like 
+the following (NOTE: there will be other ALSA devices listed in addition to 
+the loopback):
+
+**** List of PLAYBACK Hardware Devices ****
+card 0: Loopback [Loopback], device 0: Loopback PCM [Loopback PCM]
+  Subdevices: 7/8
+  Subdevice #0: subdevice #0
+  Subdevice #1: subdevice #1
+  Subdevice #2: subdevice #2
+  Subdevice #3: subdevice #3
+  Subdevice #4: subdevice #4
+  Subdevice #5: subdevice #5
+  Subdevice #6: subdevice #6
+  Subdevice #7: subdevice #7
+card 0: Loopback [Loopback], device 1: Loopback PCM [Loopback PCM]
+  Subdevices: 8/8
+  Subdevice #0: subdevice #0
+  Subdevice #1: subdevice #1
+  Subdevice #2: subdevice #2
+  Subdevice #3: subdevice #3
+  Subdevice #4: subdevice #4
+  Subdevice #5: subdevice #5
+  Subdevice #6: subdevice #6
+  Subdevice #7: subdevice #7
+
+Note that the default loopback device comes with 8 subdevices (0-7), and each of
+these is like a pipe that can function in one "direction" or the other, that is
+you can put audio into one end of the pipe and take it out of the other. These 
+pipes are very useful for connecting audio-processing programs much like a 
+patch-bay.
+
+The loopback is described with the following format:
+Loopback,DEV=device#,SUBDEV=subdevice#
+Each of the 8 Loopback "pipes" is enumerated (specified) using the SUBDEV field.
+Each pipe has two ends, numbered 0 and 1. These are enumerated/specified using 
+the DEV field. So, for example using the loopback shown above, to 
+connect the output of program 1 to the input of program 2 you do the following:
+PROGRAM 1: send output to card 0, device 0, subdevice 0 is written
+   hw:CARD=Loopback,DEV=0,SUBDEV=0
+PROGRAM 2: read input from card 0, device 1, subdevice 0 is written:
+   dsnoop:CARD=Loopback,DEV=1,SUBDEV=0
+Additional pipes can be created as a different subdevice. Each is independent
+of the other including the audio format, and the order that subdevices are used
+does not matter. If no subdevice is specified, subdevice 0 is used by default.
+
+If there will be more than one GSASysCon system operating at a time, the 
+dsnoop Loopback plugin should be used - it allows more than one connection to 
+read the output of a Loopback pipe. This makes it possible for several GStreamer 
+instances to run in parallel, each taking a 'copy' of the audio from the 
+loopback output while the input is fed from a single source such as an audio 
+player or PulseAudio. 
+
+It is possible to launch GSASysCon and connect a GStreamer process
+to the Loopback output before any audio has been delivered to the Loopback 
+input. If no rate and format information is used when making the initial
+connection ALSA will apply its default values. When the second connection is
+made (e.g. from a source) if it uses another format the audio will be corrupted
+or the connection will fail. To prevent this problem, the audio rate and format
+can be specified immediately after the alsasrc statement, following the 
+exclamation mark "!" to separate the two. This tells GStreamer to expect this
+audio data when opening the alsa source. Example:
+   alsasrc device='dsnoop:Loopback,DEV=0' provide-clock=false ! audio/x-raw,rate=96000,format=F32LE,channels=2
+
+In general a fixed rate must be used for both connections to the loopback pipe,
+and this can be chosen ahead of time. For example, PulseAudio resamples all 
+audio to a fixed rate and with a format that is specified in its configuration 
+file. Choosing an appropriate set of parameters and high quality resampling 
+ensures that audio will always be of high quality.
+
+
+
+
+________________________________________________________________________________
+
+
+                  Examples of Common Audio I/O Situations 
+
+________________________________________________________________________________
+
+1. Emulating a hardware DSP processor using a USB Audio Interface
+  One common use case is when the user would like to process audio for e.g. a 
+  DSP loudspeaker crossover. Audio input and output are local. The computer
+  hardware might be headless such as a Raspberry Pi. For this example, we assume
+  that there is a USB audio interface that has both audio input and output, 
+  however, input and output could be from different ALSA cards/devices as well.
+  The advantage of using the same device for both input and output is that it
+  both input and output will use the same clock source and will always remain
+  in sync. Although Gstreamer has sophisticated synchronization mechanisms, if
+  these are not needed that is all the better.  
+  
+  Since we will be using ALSA to interface with the card, we will first check 
+  its capabilities using the ALSAINFO.sh script that is provided with GSASysCon
+  and is found in the system_control/scripts directory. The output of this 
+  script will reveal how Gstreamer sees the codec via ALSA and provides 
+  information about the number of channels present and the audio formats and 
+  rates that are supported. 
+  
+  The System Input - Recording Audio from the Interface
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  First, we will use the command aplay -l and see that the card is number 3 in 
+  the system, e.g.   we will probe ALSA device hw:3,0. NOTE that the card number
+  on your   own system will likely be different. Run ALSAINFO with mode=record
+  to check its input capabilities:
+    ./ALSAINFO.sh mode=record device=hw:3,0
+  Examples of the output from this command can be found in the help document
+  "Using_the_ALSAINFO_App". Due to the length of the output, the contents are
+  summarized as follows:
+    a. The device can record at sample rates between 44.1k and 192k Hz
+    b. The device can record in the Gstreamer formats S16LE and S24LE
+    c. The device can record 2,4, or 8 channels of audio
+  You decide you want to record 24 bit stereo audio at 96kHz. Thus, the input
+  to the system can be written as:
+    INPUT_FORMAT = S24LE
+    INPUT_RATE = 96000
+    INPUT_CHANNELS = 2
+    SYSTEM_INPUT = alsasrc device=hw:3,0
+  The lines above should appear in the system configuration file. 
+
+  The Client Sink - Playing Audio to the Interface
+  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  Since we have already used the arecord command for the ALSA card we will be
+  using, the play mode for the same card will have the same card number under
+  ALSA, card 3. To probe what configurations are possible for playback with this
+  card we now run the ALSAINFO.sh script using mode=play:
+    ./ALSAINFO.sh mode=record device=hw:3,0 format=S24LE rate=96000
+  Because we have already decided on 24 bit format and 96k Hz sample rate we
+  include these parameters along with the ALSAINFO command. We are primarily 
+  interested in the output channel configuration with this audio format and rate
+  and this is found at the end of the ALSAINFO output. This looks like the 
+  following:
+  
+======================== (begin example output ) ===============================
+(NOTE some output before this point is omitted!)
+
+  Now testing the ability of hw:3,0 to play from 2 to 29 channels of audio.
+   The following is/are supported:
+
+An audio stream consisting of 2 channels of audio in the S24LE format is supported.
+The bitmask for this mode is: 0x0000000000000003
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+
+An audio stream consisting of 4 channels of audio in the S24LE format is supported.
+The bitmask for this mode is: 0x0000000000000033
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+
+An audio stream consisting of 6 channels of audio in the S24LE format is supported.
+The bitmask for this mode is: 0x000000000000003f
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 2 is used in this mode. Its channel mask is: 0x4
+   channel 3 is used in this mode. Its channel mask is: 0x8
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+
+An audio stream consisting of 8 channels of audio in the S24LE format is supported.
+The bitmask for this mode is: 0x0000000000000c3f
+   channel 0 is used in this mode. Its channel mask is: 0x1
+   channel 1 is used in this mode. Its channel mask is: 0x2
+   channel 2 is used in this mode. Its channel mask is: 0x4
+   channel 3 is used in this mode. Its channel mask is: 0x8
+   channel 4 is used in this mode. Its channel mask is: 0x10
+   channel 5 is used in this mode. Its channel mask is: 0x20
+   channel 10 is used in this mode. Its channel mask is: 0x400
+   channel 11 is used in this mode. Its channel mask is: 0x800
+ 
+======================== (end example output ) =================================
+
+  The output shows that there are four different possibilities for output. These
+  consist of 2, 4, 6, and 8 channels. Each has different channel assignments. 
+  The channel assignments are used in the ROUTE statements to connect input 
+  channels through to output channels.
+  
+  You decide that you want to have four output channels and make a note of the
+  channel number assignments (numbered 0,1,4,5). For the CLIENT_SINK we do NOT
+  need to explicitly list the format and rate because they are unchanged from 
+  the SYSTEM_INPUT. The ALSAINFO output has confirmed that four channel output 
+  is supported at 24/96.
+  
+  At this point you have enough information to write the system configuration
+  outline from SYSTEM_INPUT to CLIENT SINK as follows:
+
+  INPUT_FORMAT = S24LE
+  INPUT_RATE = 96000
+  INPUT_CHANNELS = 2
+  SYSTEM_INPUT = alsasrc device=hw:3,0
+  
+  CLIENT = LOCAL_PLAYBACK  
+  CLIENT_SINK =  alsasink device=hw:3,0
+    
+  ROUTE=0,0,0
+  DSP statements for ROUTE 000 go here
+  
+  ROUTE=0,0,1
+  DSP statements for ROUTE 001 go here
+
+  ROUTE=1,0,4
+  DSP statements for ROUTE 104 go here
+  
+  ROUTE=1,0,5
+  DSP statements for ROUTE 105 go here
+  
+  Above, we have described the system input, the output (sink), the routes
+  that connect logical input channels (the first number of the triple) to output
+  channels (the third number of the triple) and provided the rate and format
+  information for the audio stream. You replace "DSP statements..." with a line
+  or multiple lines that specify the DSP that you would like to apply to audio
+  passing along the route described by the ROUTE statement just above them. On 
+  the physical device there are 8 output channels that are typically numbered 
+  1 to 8, but we are only using the first four of them. To convert from the
+  logical channel number to the physical jack number we have:
+  LOGICAL CH    PHYSICAL CONNECTOR
+      0                 1
+      1                 2
+      4                 3
+      5                 4   
+
+
+2. Routing OS system audio through GSASysCon
+  This example will take audio from pipewire-pulse as input, and send it to
+  ALSA for output after processing. Pipewire is the high level audio system for
+  modern Linux OSes. Applications simply send their audio to Pipewire and let it
+  take care of what to do with it thereafter. 
+  
+  In general, the idea is to insert GSASysCon between Pipewire and your audio
+  output device (e.g. DAC). A simply way to achieve this is to disable all 
+  output devices under Pipewire and then configure the GSASysCon system input to
+  take audio from Pipewire.
+  
+  The first step is to use pavucontrol. Navigate to the Configuration tab in the
+  application. In the dropdown dialog box next to each device, choose OFF from
+  the available options. Once all devices are set to OFF Pipewire will 
+  automatically create a new device called null_sink. This is where all the OS
+  audio will now be routed, and all samples are simply deleted.
+  
+  If a recording process wants to capture the audio that is routed to null_sink
+  it can use the sink's monitor. This is listed as the only device when you
+  run the command:
+    pactl list sources short
+  The output will look like this:
+2106    auto_null.monitor       PipeWire        float32le 2ch 48000Hz   RUNNING  
+  The first number is a device ID, then the device name appears, and other info
+  about the audio format, rate, etc. This gives us the info we need to write the
+  system input as:
+    INPUT_FORMAT = F32LE
+    INPUT_RATE = 48000
+    INPUT_CHANNELS = 2
+    SYSTEM_INPUT = pulsesrc device=auto_null.monitor 
+
+  NOTE that the sample rate for the default null_monitor will always be 48kHz. 
+  All audio will be resampled to this rate. If you wish to have Pipewire 
+  resample OS audio to a different rate, please use the techniques described in
+  the help document "Gstreamer and Pipewire under Ubuntu".
+  
+  Because we have turned off all the audio devices under Pipewire we cannot use
+  it for audio output. Instead we will use ALSA. In this example we are taking
+  audio produced by applications in the OS and sending it through GSASysCon to
+  another audio device such as a USB audio interface. We can again use the
+  ALSAINFO.sh application to probe the supported number of audio channels and
+  their channel assignments. For this example, let us assume that we are using
+  the same interface that was used in Example #1, except we wish to use all 8
+  output channels. The system configuration will have the following form:
+  
+  INPUT_FORMAT = F32LE
+  INPUT_RATE = 48000
+  INPUT_CHANNELS = 2
+  SYSTEM_INPUT = pulsesrc device=auto_null.monitor
+    
+  SINK_FORMAT = S24LE
+  SINK_RATE = 96000
+  CLIENT_SINK =  alsasink device=hw:3,0
+    
+  ROUTE=0,0,0
+  DSP statements for ROUTE 0->0 go here
+  
+  ROUTE=0,0,1
+  DSP statements for ROUTE 0->1 go here
+
+  ROUTE=0,0,2
+  DSP statements for ROUTE 0->2 go here2
+  
+  ROUTE=0,0,3
+  DSP statements for ROUTE 0->3 go here
+  
+  ROUTE=1,0,4
+  DSP statements for ROUTE 1->4 go here
+  
+  ROUTE=1,0,5
+  DSP statements for ROUTE 1->5 go here
+
+  ROUTE=1,0,10
+  DSP statements for ROUTE 1->10 go here
+  
+  ROUTE=1,0,11
+  DSP statements for ROUTE 1->11 go here
+  
+  The system configuration routes input channel 0 to output channels 0,1,2 and 3
+  and routes input channel 1 to output channels 4,5,10, and 11. These are the
+  logical channel routings. On the physical device there are 8 output channels
+  that are typically numbered 1 to 8, and to convert to the physical jack #:
+  LOGICAL CH    PHYSICAL CONNECTOR
+      0                 1
+      1                 2
+      2                 3
+      3                 4
+      4                 5
+      5                 6
+      10                7
+      11                8
+
+  NOTE that when using the device in 8 channel mode, the physical connectors
+  numbered 3 and 4 have logical channel number of 2 and 3. But when the same
+  interface is used in 4 channel mode the same physical output jacks on the 
+  interface are assigned logical channel numbers 4 and 5. 
+  
+  Using ALSAINFO to check the logical channel numbers can help prevent problem 
+  or mixups when writing the system configuration for audio devices with 
+  multichannel output capabilities. When the device has more than 8 output 
+  channels, such as with some pro audio recording interfaces, the logical 
+  channel numbering is dropped and all channels get the same logical channel 
+  "number" assignment of -3. In this case, it is the order of appearance in the
+  system configuration of the channel as part of a ROUTE assignment that 
+  determines which physical output connector the audio will be routed to, in 
+  order of appearance. For an example, please see the file 
+  "Behringer_UMC1820_example" 
+  in the directory system_control/examples  

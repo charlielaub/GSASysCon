@@ -14,7 +14,10 @@
 #set the input/source for the Gstreamer pipeline to the UMC1820 with 
 #   10 channels of 96kHz 32bit audio. Note when opening the UMC1820 you must 
 #   read all 10 channels even if you only need a subset of them.
-SYSTEM_INPUT = alsasrc device='hw:CARD=UMC1820,DEV=0' ! audio/x-raw,rate=96000,format=S32LE,channels=10
+INPUT_FORMAT = S32LE
+INPUT_RATE = 96000
+INPUT_CHANNELS = 10
+SYSTEM_INPUT = alsasrc device='hw:CARD=UMC1820,DEV=0'
 
 #enable GSASysCon volume control and configure it to use the control called
 #   'Mic',1. This simulatenously adjusts the level of all inputs in software, 
@@ -24,12 +27,10 @@ VOLUME_CONTROL = card:UMC1820 > 'Mic',1  > %volume
 VOLUME_CONTROL_STYLE = graphical
 VOLUME_CONTROL_TIMEOUT=15
 
+#setup sink. Note that the audio format must be set to S24LE
 CLIENT=LOCAL_PLAYBACK
 SINK_FORMAT=S24LE
-
-#set input volume to a low level before launching CD input
-LOCAL_SCRIPT_BEFORE_LAUNCH = amixer -c UMC1820 sset 'Mic',1 62%
-
+CLIENT_SINK = alsasink device='hw:CARD=UMC1820,DEV=0'
 
 #muted audio for non-used channels
 ROUTE=0,MUTED_INPUT

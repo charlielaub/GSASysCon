@@ -3167,7 +3167,7 @@ function execute_user_action {
 
 
 function startup_and_initialize {
-  #if log directory does not exist, create it
+  #if log directory does not exist, create it 
   if ! [ -d "$LOGFILE_PATH" ]; then 
     mkdir "$LOGFILE_PATH";
   fi

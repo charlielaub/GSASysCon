@@ -3167,6 +3167,10 @@ function execute_user_action {
 
 
 function startup_and_initialize {
+  #if log file does not exist, create it
+  if ! [ -e "$LOGFILE_PATH/$LOG_FILENAME" ] ; then 
+    touch "$LOGFILE_PATH/$LOG_FILENAME";
+  fi
   #check if log file needs to be truncated
   local num_lines
   local shorter

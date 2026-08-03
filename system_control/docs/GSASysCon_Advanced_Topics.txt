@@ -21,6 +21,7 @@ System Configuration File Tips and Tricks
    Co-Listing Route Declarations that share the same processing
    About Filter Definition Files
    Using the Filter Definitions in a System Configuration File
+   How to specify digital delay as part of a ROUTE
    Channel Mixing/Up-Mixing/Defining New Channels
    Triggering Other software while launching/terminating a GSASysCon 
       System
@@ -279,6 +280,25 @@ GSASysCon Basic Topics.
 
 To see a list of the filters available, please read the file(s) located in the
 filter_defs directory. 
+
+
+
+How to specify digital delay as part of a ROUTE
+------------------------------------------------------------------------------
+Digital delay is inserted using the special element "DELAY". Like a LADSPA 
+filter, the DELAY element appears on its own line below the ROUTE declaration. 
+The DELAY element uses the following syntax:
+   DELAY = value
+where value is the number of micro-seconds of delay to be generated. For 
+convenience the following values and the corresponding delay are provided:
+   when value = 1 the delay is 1 microsecond
+   when value = 1000 the delay is 1 millisecond
+   when value = 1000000 the delay is 1 second
+The DELAY element uses a GStreamer function that changes the pipeline clock
+time for the output by the given amount. It is not acting like a delay-line
+with resolution of 1 sample, but can be finer. Keep in mind that:
+   1 sample @ 48kHz = 20.8 microsends
+The smallest delay change that can be specified is 1 microsecond.
 
 
 
